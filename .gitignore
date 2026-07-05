@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Packed tarballs (build artifacts of `npm pack`/`npm publish`)
+*.tgz
+
+# Logs and caches
+*.log
+npm-debug.log*
+.npm/
+.eslintcache
+
+# Editor / OS cruft
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/

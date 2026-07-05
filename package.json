@@ -1,0 +1,22 @@
+{
+  "name": "morf",
+  "version": "1.1.0",
+  "description": "One agent, every tool — install and convert AI skills & agents for Claude Code, Cursor, Kilo, Copilot, Windsurf and OpenCode",
+  "author": "Romi Volkovich",
+  "type": "module",
+  "bin": { "morf": "./bin/cli.js" },
+  "files": ["bin", "src", "README.md", "LICENSE"],
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "start": "node bin/cli.js",
+    "test": "node --test",
+    "lint": "eslint ."
+  },
+  "keywords": ["ai", "agents", "skills", "claude", "cursor", "copilot", "windsurf", "opencode", "kilo", "cli", "package-manager"],
+  "repository": { "type": "git", "url": "https://github.com/PLACEHOLDER/morf" },
+  "license": "MIT",
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "eslint": "^9.0.0"
+  }
+}

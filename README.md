@@ -1,8 +1,14 @@
 # morf
 
+[![npm version](https://img.shields.io/npm/v/morf.svg)](https://www.npmjs.com/package/morf)
+[![license](https://img.shields.io/npm/l/morf.svg)](./LICENSE)
+[![node](https://img.shields.io/node/v/morf.svg)](https://nodejs.org)
+
 **one agent, every tool.**
 
 morf installs AI skills & agents from any git repo into every AI coding tool at once — and converts each one into the tool's native format, not just copies it.
+
+🔗 **[morf.tools](https://morf.tools)** — docs, comparison, full conversion matrix
 
 ```
 $ morf install github.com/acme/agents --agent bug-finder --target all
@@ -13,8 +19,16 @@ $ morf install github.com/acme/agents --agent bug-finder --target all
 ± bug-finder          (converted to a .mdc rule)
 *** kilo ***
 ± bug-finder          (tools remapped)
-...
-morfed 1 agent → 6 tools
+*** copilot ***
+± bug-finder          (tools mapped)
+*** windsurf ***
+✓ bug-finder
+*** opencode ***
+± bug-finder          (tools remapped)
+*** codex ***
+—  bug-finder          (Codex has no agent format — skills only)
+
+morfed 1 agent → 6 tools, 1 skipped
 ```
 
 ## Why
@@ -33,9 +47,10 @@ Every AI tool speaks its own dialect. A skill, an agent, a rule — each tool wa
 | `copilot` (GitHub Copilot) | project | `.agents/skills/<name>/` | `.github/agents/<name>.md` |
 | `windsurf` (Devin) | project | `.devin/skills/<name>/` | `.devin/rules/<name>.md` |
 
-- **Global-scope** tools install under your home directory.
-- **Project-scope** tools install into the current directory — run morf from your project root.
+- **Global-scope** tools (`claude`, `opencode`, `kilo`, `codex`) install under your home directory.
+- **Project-scope** tools (`cursor`, `copilot`, `windsurf`) install into the current directory — run morf from your project root.
 - Windsurf: morf prefers the new `.devin/` directory (post-rebrand) and falls back to an existing `.windsurf/`.
+- A tool that doesn't support a given primitive is skipped with a clear reason (`—`), never silently ignored.
 
 ## Real conversion, not copying
 
@@ -88,6 +103,7 @@ Useful flags:
 - `--target all` — install to every tool at once
 - `--dry-run` — preview without writing (still clones, so the preview is real)
 - `--force` — overwrite locally-edited items (morf never overwrites your edits silently)
+- `--check-updates` — check every installed repo for a newer version without installing
 - `--ascii` — classic `[OK]`-style tokens instead of unicode symbols (also `MORF_ASCII=1`)
 
 ## Repo layout morf understands
@@ -120,6 +136,20 @@ Coming from `ray`? Your existing `~/.ray` config and manifest are migrated autom
 - Never modifies the source repo
 - Zero runtime dependencies — the entire tool is auditable stdlib Node
 - `--dry-run` everywhere
+
+## Contributing
+
+Issues and PRs are welcome — this is early-stage and there's a lot of surface left (see Roadmap).
+Before opening a PR, please:
+
+```sh
+git clone https://github.com/PLACEHOLDER/morf.git
+cd morf
+node --test        # full suite should pass
+```
+
+Good first contributions: a new target's conversion rules, README fixes, or test coverage for
+edge cases in `src/convert.js`.
 
 ## Roadmap
 

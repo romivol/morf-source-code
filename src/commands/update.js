@@ -5,6 +5,8 @@ import { ALL_TARGET } from '../targets.js';
 import { readManifest, writeManifest, allRecords } from '../manifest.js';
 import { readConfig } from '../config.js';
 import { log } from '../log.js';
+import { createTargetTable } from '../table.js';
+import { targetScope } from '../targets.js';
 import { installOne, countResult, printSummary } from './install.js';
 import * as M from '../messages.js';
 
@@ -59,8 +61,11 @@ export async function updateCommand(args) {
     groups.get(key).records.push(r);
   }
 
-  const total = toUpdate.length;
-  let done = 0;
+  const table = dryRun ? null : createTargetTable(
+    [...new Set(toUpdate.map(r => r.target))],
+    [...new Set(toUpdate.map(r => r.name))],
+  );
+  if (table) table.header();
 
   for (const group of groups.values()) {
     try {
@@ -70,15 +75,14 @@ export async function updateCommand(args) {
           const item = available.find(i =>
             i.type === record.type && sanitizeName(i.name) === record.name
           );
-          done++;
-          const prefix = total > 1 ? log.meta(`[${done}/${total}] `) : '';
           if (!item) {
-            log.err(`${prefix}Failed to update ${record.type} '${record.name}': not found in ${group.repo}`);
+            if (table) table.row(record.target, record.name, log.TAG.fail(), `not found in ${group.repo}`);
+            else log.err(`Failed to update ${record.type} '${record.name}': not found in ${group.repo}`);
             counts.failed++;
             continue;
           }
           try {
-            const result = await installOne(item, {
+            const { result, tagName, note } = await installOne(item, {
               repo: group.repo,
               target: record.target,
               manifest,
@@ -86,11 +90,16 @@ export async function updateCommand(args) {
               ref: group.ref,
               dryRun,
               config,
-              prefix,
             });
             countResult(counts, result);
+            if (table && tagName) {
+              const projectScoped = targetScope(record.target) === 'project';
+              const trailing = note || (projectScoped ? '(project-scoped)' : null);
+              table.row(record.target, record.name, log.TAG[tagName](), trailing);
+            }
           } catch (e) {
-            log.err(`${prefix}Failed to update ${record.type} '${record.name}': ${e.message}`);
+            if (table) table.row(record.target, record.name, log.TAG.fail(), e.message);
+            else log.err(`Failed to update ${record.type} '${record.name}': ${e.message}`);
             counts.failed++;
           }
         }

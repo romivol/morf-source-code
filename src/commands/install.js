@@ -10,9 +10,15 @@ import { readConfig, resolveRepo } from '../config.js';
 import { normalizeRepo } from '../source.js';
 import { adaptAgentForTarget } from '../convert.js';
 import { log } from '../log.js';
+import { createTargetTable } from '../table.js';
 import * as M from '../messages.js';
 
 const NOTE_INDENT = '         '; // 9 spaces
+
+// Sanitized name for display; falls back to the raw name if it can't be sanitized.
+function safeOrName(name) {
+  try { return sanitizeName(name); } catch { return name; }
+}
 
 export async function installCommand(args) {
   const { repoArg, skills, agents, all, target, force, ref, dryRun } = args;
@@ -24,7 +30,6 @@ export async function installCommand(args) {
 
   const counts = { installed: 0, updated: 0, upToDate: 0, skipped: 0, failed: 0 };
   const concreteTargets = expandTargets(target);
-  const multiTarget = concreteTargets.length > 1;
 
   await withTempClone(repo, ref, async (cloneDir) => {
     const available = await scanRepo(cloneDir);
@@ -67,22 +72,31 @@ export async function installCommand(args) {
     const manifest = await readManifest();
     const newlyInstalled = [];
 
+    const selectedNames = selected.map(i => safeOrName(i.name));
+    const table = (!dryRun && selected.length > 0)
+      ? createTargetTable(concreteTargets, selectedNames)
+      : null;
+    if (table) table.header();
+
     for (const concreteTarget of concreteTargets) {
-      if (multiTarget) log.header(`\n*** ${concreteTarget} ***`);
-      if (targetScope(concreteTarget) === 'project') {
-        log.dim(`  (${concreteTarget} is project-scoped — installing into the current directory)`);
-      }
+      const projectScoped = targetScope(concreteTarget) === 'project';
 
       for (const item of selected) {
+        const rowName = safeOrName(item.name);
         try {
-          const result = await installOne(item, { repo, target: concreteTarget, manifest, force, ref, dryRun, config });
+          const { result, tagName, note } =
+            await installOne(item, { repo, target: concreteTarget, manifest, force, ref, dryRun, config });
           countResult(counts, result);
+          if (table && tagName) {
+            const trailing = note || (projectScoped ? '(project-scoped)' : null);
+            table.row(concreteTarget, rowName, log.TAG[tagName](), trailing);
+          }
           if (!dryRun && result === 'installed') {
             newlyInstalled.push({ name: sanitizeName(item.name), type: item.type });
           }
         } catch (e) {
-          log.err(item.name);
-          log.dim(`${NOTE_INDENT}error: ${e.message}`);
+          if (table) table.row(concreteTarget, rowName, log.TAG.fail(), e.message);
+          else { log.err(item.name); log.dim(`${NOTE_INDENT}error: ${e.message}`); }
           counts.failed++;
         }
       }
@@ -137,21 +151,22 @@ export function printSummary(counts) {
 }
 
 // Install or update a single item.
-// Returns one of: 'installed' | 'updated' | 'up-to-date' | 'skipped'.
+// Returns { result, tagName, note } where result is one of
+//   'installed' | 'updated' | 'up-to-date' | 'skipped'
+// tagName is the status symbol to render (or null in dry-run, which prints its
+// own line) and note is an optional short dimmed trailing fragment.
 //
 // Options:
 //   repo, target, manifest, force, ref, dryRun — the resolved install context
 //   config  — loaded morf config (controls agent conversion); defaults to null
-//   prefix  — optional string prepended to per-item status lines (e.g. '[2/5] ')
 export async function installOne(item, options) {
-  const { repo, target, manifest, force, ref, dryRun, config = null, prefix = '' } = options;
+  const { repo, target, manifest, force, ref, dryRun, config = null } = options;
   let mapping;
   try {
     mapping = resolveDestination(target, item.type);
   } catch (e) {
     if (e.message.includes('does not support')) {
-      log.warn(`${prefix}${e.message.split('.')[0]} (skipping ${item.name})`);
-      return 'skipped';
+      return { result: 'skipped', tagName: 'mod', note: `not supported by ${target}` };
     }
     throw e;
   }
@@ -172,43 +187,40 @@ export async function installOne(item, options) {
   } catch { /* dest doesn't exist */ }
 
   const otherType = item.type === 'skill' ? 'agent' : 'skill';
-  if (getRecord(manifest, otherType, safeName, target)) {
-    log.info(`note: a ${otherType} named '${safeName}' is also installed.`);
-  }
+  const crossNote = getRecord(manifest, otherType, safeName, target)
+    ? `a ${otherType} named '${safeName}' is also installed`
+    : null;
 
   const existingInstalledHash = existing ? getInstalledHash(existing) : null;
   const isLocallyModified = destExists && (!existing || onDiskHash !== existingInstalledHash);
   if (isLocallyModified && !force) {
     if (dryRun) {
-      log.info(`${prefix}${M.dry.wouldSkip(safeName)}`);
-    } else {
-      log.mod(`${prefix}${safeName}`);
-      log.dim(`${NOTE_INDENT}note: has local changes — re-run with --force to overwrite`);
+      log.info(M.dry.wouldSkip(safeName));
+      return { result: 'skipped', tagName: null, note: null };
     }
-    return 'skipped';
+    return { result: 'skipped', tagName: 'mod', note: 'local changes — re-run with --force' };
   }
 
   const repoHash = await hashPath(item.srcPath);
   const existingSourceHash = existing ? getSourceHash(existing) : null;
   if (destExists && existing && !isLocallyModified && repoHash === existingSourceHash) {
     if (dryRun) {
-      log.info(`${prefix}${M.dry.alreadyCurrent(safeName)}`);
-    } else {
-      if (ref && ref !== existing.ref) {
-        existing.ref = ref;
-        existing.installedAt = new Date().toISOString();
-      }
-      log.ok(`${prefix}${safeName}`);
+      log.info(M.dry.alreadyCurrent(safeName));
+      return { result: 'up-to-date', tagName: null, note: null };
     }
-    return 'up-to-date';
+    if (ref && ref !== existing.ref) {
+      existing.ref = ref;
+      existing.installedAt = new Date().toISOString();
+    }
+    return { result: 'up-to-date', tagName: 'ok', note: crossNote };
   }
 
   const isUpdate = destExists && existing;
 
   if (dryRun) {
-    log.info(prefix + (isUpdate ? M.dry.wouldUpdate(item.type, safeName, destPath)
-                                : M.dry.wouldInstall(item.type, safeName, destPath)));
-    return isUpdate ? 'updated' : 'installed';
+    log.info(isUpdate ? M.dry.wouldUpdate(item.type, safeName, destPath)
+                      : M.dry.wouldInstall(item.type, safeName, destPath));
+    return { result: isUpdate ? 'updated' : 'installed', tagName: null, note: null };
   }
 
   try {
@@ -231,8 +243,8 @@ export async function installOne(item, options) {
       if (changed) {
         await fs.writeFile(destPath, adaptedText, 'utf8');
         installedHash = await hashPath(destPath);
-        const summary = notes.length ? ` (${notes.join('; ')})` : '';
-        adaptNote = `note: adapted agent for ${target}${summary}`;
+        const summary = notes.length ? `: ${notes.join('; ')}` : '';
+        adaptNote = `adapted for ${target}${summary}`;
       }
     } catch {
       // fallback: leave the copied file unchanged
@@ -252,13 +264,8 @@ export async function installOne(item, options) {
     installedAt: new Date().toISOString(),
   });
 
-  if (adaptNote) {
-    log.warn(`${prefix}${safeName}`);
-    log.dim(`${NOTE_INDENT}${adaptNote}`);
-  } else if (isUpdate) {
-    log.upd(`${prefix}${safeName}`);
-  } else {
-    log.ok(`${prefix}${safeName}`);
-  }
-  return isUpdate ? 'updated' : 'installed';
+  const note = [adaptNote, crossNote].filter(Boolean).join('; ') || null;
+  if (adaptNote) return { result: isUpdate ? 'updated' : 'installed', tagName: 'warn', note };
+  if (isUpdate)  return { result: 'updated', tagName: 'upd', note };
+  return { result: 'installed', tagName: 'ok', note };
 }

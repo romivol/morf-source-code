@@ -5,6 +5,7 @@ import { sanitizeName, assertPathInside } from '../sanitize.js';
 import { removePath } from '../fsops.js';
 import { readManifest, writeManifest, getRecord, deleteRecord, allRecords } from '../manifest.js';
 import { log } from '../log.js';
+import { createTargetTable } from '../table.js';
 import * as M from '../messages.js';
 
 export async function uninstallCommand(args) {
@@ -70,6 +71,9 @@ export async function uninstallCommand(args) {
   let removed = 0;
   let failures = 0;
 
+  const table = createTargetTable(real.map(r => r.target), real.map(r => r.name));
+  table.header();
+
   for (const req of real) {
     try {
       const destPath = destPathFor(req);
@@ -81,10 +85,10 @@ export async function uninstallCommand(args) {
         throw e;
       }
       deleteRecord(manifest, req.type, req.name, req.target);
-      log.ok(M.removed(req.type, req.name, req.target));
+      table.row(req.target, req.name, log.TAG.ok(), 'removed');
       removed++;
     } catch (e) {
-      log.err(`Failed to uninstall ${req.type} '${req.name}': ${e.message}`);
+      table.row(req.target, req.name, log.TAG.fail(), e.message);
       failures++;
     }
   }

@@ -1,5 +1,5 @@
 {
-  "name": "morf",
+  "name": "@omiv/morf",
   "version": "1.1.0",
   "description": "One agent, every tool — install and convert AI skills & agents for Claude Code, Cursor, Kilo, Copilot, Windsurf and OpenCode",
   "author": "Romi Volkovich",
@@ -15,6 +15,7 @@
   "keywords": ["ai", "agents", "skills", "claude", "cursor", "copilot", "windsurf", "opencode", "kilo", "cli", "package-manager"],
   "repository": { "type": "git", "url": "https://github.com/PLACEHOLDER/morf" },
   "license": "MIT",
+  "publishConfig": { "access": "public" },
   "devDependencies": {
     "@eslint/js": "^9.0.0",
     "eslint": "^9.0.0"

@@ -1,6 +1,6 @@
 # morf
 
-[![npm version](https://img.shields.io/npm/v/%40omiv%2Fmorf.svg)](https://www.npmjs.com/package/@omiv/morf)
+[![npm version](https://img.shields.io/npm/v/%40omiv%2Fmorf.svg)](https://www.npmjs.com/package/@romivol/morf)
 [![license](https://img.shields.io/npm/l/%40omiv%2Fmorf.svg)](./LICENSE)
 [![node](https://img.shields.io/node/v/%40omiv%2Fmorf.svg)](https://nodejs.org)
 
@@ -66,9 +66,9 @@ Your source repo is never modified. Disable conversion with `morf config convert
 ## Install
 
 ```sh
-npm install -g @omiv/morf
+npm install -g @romiv/morf
 # or one-off:
-npx @omiv/morf install <git-url> --all
+npx @romiv/morf install <git-url> --all
 ```
 
 **Requirement:** `git` must be installed on your machine.

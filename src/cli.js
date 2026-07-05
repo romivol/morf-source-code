@@ -21,12 +21,12 @@ Install and convert AI skills & agents for ${listTargets().join(', ')}.
 
 Usage:
   morf install   [<repo>] [--skill <name>]... [--agent <name>]... [--all]
-                          [--target <tool>|all] [--ref <branch>] [--force] [--dry-run]
+                          [--target <tool>...|all] [--ref <branch>] [--force] [--dry-run]
   morf update    [--skill <name>]... [--agent <name>]... [--all]
-                          [--target <tool>|all] [--ref <branch>] [--force] [--dry-run]
+                          [--target <tool>...|all] [--ref <branch>] [--force] [--dry-run]
   morf uninstall [<repo>] [--skill <name>]... [--agent <name>]... [--all]
-                          [--target <tool>|all] [--force | -y] [--dry-run]
-  morf list      [--all-on-disk] [--check-updates] [--target <tool>|all]
+                          [--target <tool>...|all] [--force | -y] [--dry-run]
+  morf list      [--all-on-disk] [--check-updates] [--target <tool>...|all]
   morf config    <subcommand>   (run 'morf config' for details)
   morf --help | -h
   morf --version | -v
@@ -40,7 +40,8 @@ Flags:
   --skill <name>    Skill to install/update/uninstall (repeatable or space-separated)
   --agent <name>    Agent to install/update/uninstall (repeatable or space-separated)
   --all             All items in the repo (install) or already managed (update/uninstall)
-  --target <t>      Where to install (default: your configured tool, else ${DEFAULT_TARGET})
+  --target <t>      Where to install (repeatable or space-separated; default:
+                    your configured tool, else ${DEFAULT_TARGET}). Use 'all' for every tool.
   --ref <branch>    Branch or tag to clone from (saved to the manifest)
   --force / -y      Overwrite local edits (install/update); skip confirm prompt (uninstall)
   --dry-run         Show what would happen without writing anything
@@ -54,6 +55,7 @@ Examples:
   morf config alias @core github.com/my-org/skills.git
   morf install @core --all
   morf install @core --skill pdf-skill code-review --agent qa-agent --target claude
+  morf install @core --agent bug-finder --target claude opencode codex
   morf install @core --agent bug-finder --target all      # every tool at once
   morf install @core --agent bug-finder --target cursor   # converted to a .mdc rule
   morf update --all
@@ -92,17 +94,23 @@ export async function run(argv) {
     const rest = args.slice(1);
     const allOnDisk = rest.includes('--all-on-disk');
     const checkUpdates = rest.includes('--check-updates');
-    let listTarget = null;
+    let listTargets_ = [];
     const ti = rest.indexOf('--target');
     if (ti !== -1) {
-      const val = rest[ti + 1];
-      if (!val || val.startsWith('-')) { log.err('--target requires a value.'); process.exit(1); }
-      if (!isValidTarget(val)) {
-        log.err(`Unknown target "${val}". Valid targets: ${listTargets().join(', ')}, all.`);
-        process.exit(1);
+      let j = ti + 1;
+      let consumed = 0;
+      while (j < rest.length && !rest[j].startsWith('-')) {
+        const val = rest[j];
+        if (!isValidTarget(val)) {
+          log.err(`Unknown target "${val}". Valid targets: ${listTargets().join(', ')}, all.`);
+          process.exit(1);
+        }
+        listTargets_.push(val); j++; consumed++;
       }
-      listTarget = val === ALL_TARGET ? null : val;
+      if (consumed === 0) { log.err('--target requires a value.'); process.exit(1); }
     }
+    // 'all' (or no --target) means no filter.
+    const listTarget = listTargets_.includes(ALL_TARGET) ? null : listTargets_;
     await listCommand({ allOnDisk, target: listTarget, checkUpdates });
     return;
   }
@@ -148,8 +156,8 @@ async function parseInstallArgs(args, command, { acceptRepo, acceptDashY }) {
 
   const skills = [];
   const agents = [];
+  const targets = [];          // resolved below: flag > config > DEFAULT_TARGET
   let all = false;
-  let target = null;           // resolved below: flag > config > DEFAULT_TARGET
   let targetFromFlag = false;
   let force = false;
   let ref = null;
@@ -172,14 +180,19 @@ async function parseInstallArgs(args, command, { acceptRepo, acceptDashY }) {
     } else if (a === '--all') {
       all = true;
     } else if (a === '--target') {
-      const val = args[++i];
-      if (!val || val.startsWith('-')) { log.err('--target requires a value.'); process.exit(1); return null; }
-      if (!isValidTarget(val)) {
-        log.err(`Unknown target "${val}". Valid targets: ${listTargets().join(', ')}, all.`);
-        process.exit(1);
-        return null;
+      i++;
+      let consumed = 0;
+      while (i < args.length && !args[i].startsWith('-')) {
+        const val = args[i];
+        if (!isValidTarget(val)) {
+          log.err(`Unknown target "${val}". Valid targets: ${listTargets().join(', ')}, all.`);
+          process.exit(1);
+          return null;
+        }
+        targets.push(val); i++; consumed++;
       }
-      target = val;
+      i--;
+      if (consumed === 0) { log.err('--target requires a value.'); process.exit(1); return null; }
       targetFromFlag = true;
     } else if (a === '--force' || (acceptDashY && a === '-y')) {
       force = true;
@@ -202,9 +215,9 @@ async function parseInstallArgs(args, command, { acceptRepo, acceptDashY }) {
   if (!targetFromFlag && command !== 'update') {
     const cfg = await readConfig();
     if (cfg.defaultTarget && isValidTarget(cfg.defaultTarget)) {
-      target = cfg.defaultTarget;
+      targets.push(cfg.defaultTarget);
     } else {
-      target = DEFAULT_TARGET;
+      targets.push(DEFAULT_TARGET);
       log.dim(`no default tool configured — using ${DEFAULT_TARGET}. ` +
               `Set yours with: morf config default <tool>`);
     }
@@ -222,5 +235,5 @@ async function parseInstallArgs(args, command, { acceptRepo, acceptDashY }) {
     return null;
   }
 
-  return { repoArg, skills, agents, all, target, force, ref, dryRun };
+  return { repoArg, skills, agents, all, targets, force, ref, dryRun };
 }

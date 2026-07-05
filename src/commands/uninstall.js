@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 import readline from 'node:readline';
-import { resolveDestination, expandTargets, ALL_TARGET } from '../targets.js';
+import { resolveDestination, expandTargets } from '../targets.js';
 import { sanitizeName, assertPathInside } from '../sanitize.js';
 import { removePath } from '../fsops.js';
 import { readManifest, writeManifest, getRecord, deleteRecord, allRecords } from '../manifest.js';
@@ -9,15 +9,15 @@ import { createTargetTable } from '../table.js';
 import * as M from '../messages.js';
 
 export async function uninstallCommand(args) {
-  const { skills, agents, all, target, force, dryRun } = args;
+  const { skills, agents, all, targets, force, dryRun } = args;
 
   const manifest = await readManifest();
 
   // Build the list of requested removals.
-  const concreteTargets = expandTargets(target);
+  const concreteTargets = expandTargets(targets);
   const requested = all
     ? allRecords(manifest)
-        .filter(r => !target || target === ALL_TARGET || r.target === target)
+        .filter(r => concreteTargets.length === 0 || concreteTargets.includes(r.target))
         .map(r => ({ type: r.type, name: r.name, target: r.target }))
     : [
         ...skills.flatMap(name => {

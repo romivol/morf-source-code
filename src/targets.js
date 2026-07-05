@@ -109,10 +109,15 @@ export function targetScope(target) {
   return t ? t.scope : null;
 }
 
-// 'all' -> every real target; a single concrete target -> [target]
+// Accepts a single target, an array of targets, or null/undefined.
+// 'all' anywhere -> every real target. Otherwise expands to the concrete
+// targets given, de-duplicated while preserving first-seen order.
 export function expandTargets(target) {
-  if (target === ALL_TARGET) return listTargets();
-  return [target];
+  const list = Array.isArray(target)
+    ? target
+    : (target == null ? [] : [target]);
+  if (list.includes(ALL_TARGET)) return listTargets();
+  return [...new Set(list)];
 }
 
 export function resolveDestination(target, type, cwd = null) {

@@ -1,7 +1,7 @@
 import { assertGitAvailable, withTempClone } from '../git.js';
 import { scanRepo } from '../scan.js';
 import { sanitizeName } from '../sanitize.js';
-import { ALL_TARGET } from '../targets.js';
+import { expandTargets } from '../targets.js';
 import { readManifest, writeManifest, allRecords } from '../manifest.js';
 import { readConfig } from '../config.js';
 import { log } from '../log.js';
@@ -11,7 +11,7 @@ import { installOne, countResult, printSummary } from './install.js';
 import * as M from '../messages.js';
 
 export async function updateCommand(args) {
-  const { skills, agents, all, target, force, ref: refOverride, dryRun } = args;
+  const { skills, agents, all, targets, force, ref: refOverride, dryRun } = args;
 
   await assertGitAvailable();
   const config = await readConfig();
@@ -24,7 +24,8 @@ export async function updateCommand(args) {
   let toUpdate = [];
   const unknown = [];
 
-  const targetFilter = r => !target || target === ALL_TARGET || r.target === target;
+  const concreteTargets = expandTargets(targets);
+  const targetFilter = r => concreteTargets.length === 0 || concreteTargets.includes(r.target);
 
   if (all) {
     toUpdate = records.filter(targetFilter);

@@ -49,11 +49,13 @@ export function shortRepo(repoOrKey) {
 
 export async function listCommand(opts = {}) {
   const { allOnDisk, target, checkUpdates } = opts;
+  // `target` is an array of concrete targets to filter by, or null for no filter.
+  const targetFilter = Array.isArray(target) && target.length > 0 ? target : null;
 
   const manifest = await readManifest();
   let records = allRecords(manifest);
 
-  if (target) records = records.filter(r => r.target === target);
+  if (targetFilter) records = records.filter(r => targetFilter.includes(r.target));
 
   if (records.length === 0 && !allOnDisk) {
     log.info(M.listEmpty);
@@ -120,7 +122,7 @@ export async function listCommand(opts = {}) {
   const unmanaged = [];
   if (allOnDisk) {
     const managedKeys = new Set(records.map(r => `${r.type}:${r.name}:${r.target}`));
-    const targetsToScan = target ? [target] : listTargets();
+    const targetsToScan = targetFilter || listTargets();
     for (const t of targetsToScan) {
       for (const item of await scanDisk(t)) {
         if (!managedKeys.has(`${item.type}:${item.name}:${item.target}`)) unmanaged.push(item);

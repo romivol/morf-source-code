@@ -21,7 +21,7 @@ function safeOrName(name) {
 }
 
 export async function installCommand(args) {
-  const { repoArg, skills, agents, all, target, force, ref, dryRun } = args;
+  const { repoArg, skills, agents, all, targets, force, ref, dryRun } = args;
 
   const config = await readConfig();
   const repo = resolveRepo(repoArg, config);
@@ -29,7 +29,7 @@ export async function installCommand(args) {
   await assertGitAvailable();
 
   const counts = { installed: 0, updated: 0, upToDate: 0, skipped: 0, failed: 0 };
-  const concreteTargets = expandTargets(target);
+  const concreteTargets = expandTargets(targets);
 
   await withTempClone(repo, ref, async (cloneDir) => {
     const available = await scanRepo(cloneDir);

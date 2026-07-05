@@ -1,6 +1,6 @@
 {
   "name": "@romivol/morf",
-  "version": "1.1.0",
+  "version": "1.1.2",
   "description": "One agent, every tool — install and convert AI skills & agents for Claude Code, Cursor, Kilo, Copilot, Windsurf and OpenCode",
   "author": "Romi Volkovich",
   "type": "module",

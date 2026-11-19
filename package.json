@@ -1,7 +1,7 @@
 {
   "name": "@romivol/morf",
   "version": "1.1.2",
-  "description": "One agent, every tool — install and convert AI skills & agents for Claude Code, Cursor, Kilo, Copilot, Windsurf and OpenCode",
+  "description": "One agent, every tool — install and convert AI skills & agents for Claude Code, Cursor, Kilo, Copilot, Windsurf, OpenCode and Codex",
   "author": "Romi Volkovich",
   "type": "module",
   "bin": {
@@ -31,12 +31,17 @@
     "windsurf",
     "opencode",
     "kilo",
+    "codex",
     "cli",
     "package-manager"
   ],
+  "homepage": "https://morf.tools",
   "repository": {
     "type": "git",
-    "url": "https://github.com/romivol/morf-source-code.git"
+    "url": "https://github.com/romivol/morf.git"
+  },
+  "bugs": {
+    "url": "https://github.com/romivol/morf/issues"
   },
   "license": "MIT",
   "publishConfig": {

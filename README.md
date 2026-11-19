@@ -1,163 +1,215 @@
 # morf
 
-[![npm version](https://img.shields.io/npm/v/%40omiv%2Fmorf.svg)](https://www.npmjs.com/package/@romivol/morf)
-[![license](https://img.shields.io/npm/l/%40omiv%2Fmorf.svg)](./LICENSE)
-[![node](https://img.shields.io/node/v/%40omiv%2Fmorf.svg)](https://nodejs.org)
+[![npm version](https://img.shields.io/npm/v/%40romivol%2Fmorf.svg)](https://www.npmjs.com/package/@romivol/morf)
+[![CI](https://github.com/romivol/morf/actions/workflows/ci.yml/badge.svg)](https://github.com/romivol/morf/actions/workflows/ci.yml)
+[![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](./LICENSE)
+[![node >= 18](https://img.shields.io/badge/node-%3E%3D18-brightgreen.svg)](https://nodejs.org)
 
-**one agent, every tool.**
+**One agent, every tool.**
 
-morf installs AI skills & agents from any git repo into every AI coding tool at once — and converts each one into the tool's native format, not just copies it.
+morf is a command-line package manager for AI coding skills and agents. It installs them from any git repository into the AI coding tools you use, and converts each one into that tool's native format instead of copying the file as-is.
 
-🔗 **[morf.tools](https://morf.tools)** — docs, comparison, full conversion matrix
+Website: [morf.tools](https://morf.tools)
 
 ```
 $ morf install github.com/acme/agents --agent bug-finder --target all
 
-*** claude ***
-✓ bug-finder
-*** cursor ***
-± bug-finder          (converted to a .mdc rule)
-*** kilo ***
-± bug-finder          (tools remapped)
-*** copilot ***
-± bug-finder          (tools mapped)
-*** windsurf ***
-✓ bug-finder
-*** opencode ***
-± bug-finder          (tools remapped)
-*** codex ***
-—  bug-finder          (Codex has no agent format — skills only)
+  TARGET      NAME          STATUS
+  opencode    bug-finder    ±   adapted for opencode: tools
+  claude      bug-finder    ✓
+  kilo        bug-finder    ±   adapted for kilo: tools
+  cursor      bug-finder    ±   adapted for cursor: commented tools, model; added alwaysApply   (project-scoped)
+  copilot     bug-finder    ±   adapted for copilot: commented tools, model   (project-scoped)
+  codex       bug-finder    ⊘   not supported by codex
+  windsurf    bug-finder    ±   adapted for windsurf: commented tools, model   (project-scoped)
 
-morfed 1 agent → 6 tools, 1 skipped
+Installed 6, skipped 1.
 ```
 
 ## Why
 
-Every AI tool speaks its own dialect. A skill, an agent, a rule — each tool wants a different folder, a different extension, different frontmatter. morf is the translator: write it once, `morf` it everywhere.
+Every AI coding tool expects skills and agents in a different place, with a different file extension and different frontmatter. Claude Code lists tools as `tools: Read, Bash`; OpenCode and Kilo want a boolean map; Cursor wants a `.mdc` rule with `alwaysApply`; Codex has no agent format at all. Keeping one agent working across tools means hand-editing copies.
+
+morf keeps the source in one git repo and does the translation on install.
 
 ## Supported tools
 
-| Tool | Scope | Skills | Agents |
-|------|-------|--------|--------|
+| Target | Scope | Skills go to | Agents go to |
+|---|---|---|---|
 | `claude` (Claude Code) | global | `~/.claude/skills/<name>/` | `~/.claude/agents/<name>.md` |
 | `opencode` | global | `~/.config/opencode/skills/<name>/` | `~/.config/opencode/agent/<name>.md` |
 | `kilo` (Kilo Code v7+) | global | `~/.kilo/skills/<name>/` | `~/.kilo/agent/<name>.md` |
-| `codex` (OpenAI Codex CLI) | global | `~/.codex/skills/<name>/` | — (no agent format; skills only) |
+| `codex` (OpenAI Codex CLI) | global | `~/.codex/skills/<name>/` | not supported, skills only |
 | `cursor` | project | `.cursor/skills/<name>/` | `.cursor/rules/<name>.mdc` |
 | `copilot` (GitHub Copilot) | project | `.agents/skills/<name>/` | `.github/agents/<name>.md` |
 | `windsurf` (Devin) | project | `.devin/skills/<name>/` | `.devin/rules/<name>.md` |
 
-- **Global-scope** tools (`claude`, `opencode`, `kilo`, `codex`) install under your home directory.
-- **Project-scope** tools (`cursor`, `copilot`, `windsurf`) install into the current directory — run morf from your project root.
-- Windsurf: morf prefers the new `.devin/` directory (post-rebrand) and falls back to an existing `.windsurf/`.
-- A tool that doesn't support a given primitive is skipped with a clear reason (`—`), never silently ignored.
+Global-scope targets install under your home directory. Project-scope targets install into the current working directory, so run morf from the project root. For Windsurf, morf writes to `.devin/` and falls back to an existing `.windsurf/` directory if there is no `.devin/`.
 
-## Real conversion, not copying
+When a target does not support a primitive, morf reports it as skipped with the reason. It never fails silently.
 
-On install, morf rewrites each agent's frontmatter for the target:
+## What conversion does
 
-- **Tool names** — `Read, Bash` (Claude) ↔ `read: true` maps (OpenCode/Kilo)
-- **Unsupported fields** — commented out (never silently dropped), with the reason inline
-- **Cursor** — agents become `.mdc` rules (`alwaysApply: false` added)
-- **Field validation** — model/color/temperature checked against each tool's expectations
+On install, morf rewrites agent frontmatter for the target:
 
-Your source repo is never modified. Disable conversion with `morf config convert off`.
+- **Tool lists.** `tools: Read, Bash` (Claude style, inline or YAML list) becomes a `read: true` / `bash: true` map for OpenCode and Kilo, and back again in the other direction.
+- **Field validation for OpenCode and Kilo.** `color`, `model` and `temperature` are checked against what those tools accept. `permission` is not supported in their agent frontmatter. Invalid fields are commented out in place with the reason, never deleted.
+- **Cursor.** Only `description`, `globs` and `alwaysApply` are kept. Everything else is commented out, and `alwaysApply: false` is added so the file is a valid rule.
+- **Copilot and Windsurf.** Same allow-list approach: `description` for Copilot; `description`, `globs` and `trigger` for Windsurf.
+
+Skills are copied as directories without modification. The source repository is never changed. Conversion can be turned off with `morf config convert off`.
 
 ## Install
 
+Requires Node.js 18 or newer and `git` on your PATH.
+
 ```sh
-npm install -g @romiv/morf
-# or one-off:
-npx @romiv/morf install <git-url> --all
+npm install -g @romivol/morf
 ```
 
-**Requirement:** `git` must be installed on your machine.
-
-## Quick start
+Or run it once without installing:
 
 ```sh
-# 1. Set your primary tool once
+npx @romivol/morf install <git-url> --all
+```
+
+## Usage
+
+```sh
+# set the tool you use most (optional; defaults to opencode)
 morf config default claude
 
-# 2. Install from any git repo
+# install everything from a repo into your default tool
 morf install github.com/acme/agents --all
 
-# 3. See what's installed, everywhere
+# install specific items into specific tools
+morf install github.com/acme/agents --skill pdf-skill code-review --agent qa-agent --target claude cursor
+
+# install one agent everywhere
+morf install github.com/acme/agents --agent bug-finder --target all
+
+# preview without writing anything (the repo is still cloned so the preview is real)
+morf install github.com/acme/agents --all --dry-run
+
+# see what is installed, across every tool
 morf list
+
+# check every installed repo for a newer version
+morf list --check-updates
+
+# pull the latest version of everything morf manages
+morf update --all
+
+# remove an item without the confirmation prompt
+morf uninstall --skill pdf-skill -y
 ```
 
-## Commands
+### Commands
 
 ```
-morf install   [<repo>] [--skill <name>]... [--agent <name>]... [--all]
-                        [--target <tool>|all] [--ref <branch>] [--force] [--dry-run]
-morf update    [--skill <name>]... [--agent <name>]... [--all] [--target <tool>|all]
-morf uninstall [<repo>] [--skill <name>]... [--agent <name>]... [--all] [--force | -y]
-morf list      [--all-on-disk] [--check-updates] [--target <tool>|all]
+morf install   [<repo>] [--skill <name>...] [--agent <name>...] [--all]
+               [--target <tool>...|all] [--ref <branch>] [--force] [--dry-run]
+morf update    [--skill <name>...] [--agent <name>...] [--all]
+               [--target <tool>...|all] [--ref <branch>] [--force] [--dry-run]
+morf uninstall [<repo>] [--skill <name>...] [--agent <name>...] [--all]
+               [--target <tool>...|all] [--force | -y] [--dry-run]
+morf list      [--all-on-disk] [--check-updates] [--target <tool>...|all]
 morf config    default <tool> | repo <url> | alias <@name> <url> | unalias <@name>
                | convert on|off | unset default|repo | list
 morf --help | --version
 ```
 
-Useful flags:
-- `--target all` — install to every tool at once
-- `--dry-run` — preview without writing (still clones, so the preview is real)
-- `--force` — overwrite locally-edited items (morf never overwrites your edits silently)
-- `--check-updates` — check every installed repo for a newer version without installing
-- `--ascii` — classic `[OK]`-style tokens instead of unicode symbols (also `MORF_ASCII=1`)
+Flags worth knowing:
 
-## Repo layout morf understands
+- `--target` accepts several tools separated by spaces, or `all`.
+- `--force` overwrites an item you edited locally. Without it, morf skips the item and tells you.
+- `--dry-run` prints what would change and writes nothing.
+- `--ascii` replaces the unicode status symbols with `[OK]`-style tokens for terminals that cannot render them.
+- `--all-on-disk` on `list` also shows skills and agents in a tool's directory that morf did not install.
+
+### Aliases and a default repo
+
+```sh
+morf config repo github.com/acme/agents        # omit the repo argument from now on
+morf config alias @core github.com/acme/core    # short name
+morf install @core --all
+```
+
+## Source repo layout
+
+morf looks for two top-level directories in the repository it clones:
 
 ```
 your-repo/
 ├── skills/
 │   └── my-skill/
-│       └── SKILL.md      # Agent Skills spec (name must match folder)
+│       └── SKILL.md       # a directory is a skill if it contains SKILL.md
 └── agents/
-    └── my-agent.md       # frontmatter + markdown body
+    └── my-agent.md        # one markdown file per agent, frontmatter + body
 ```
 
-## Config
+Either directory may be missing.
 
-Stored in `~/.morf/config.json`:
+## How it works
 
-```sh
-morf config default cursor            # default install target
-morf config repo github.com/org/repo  # default repo (skip typing it)
-morf config alias @core github.com/org/core-skills
-morf install @core --all
+```
+morf install <repo>
+   │
+   ├─ git.js        shallow-clone the repo to a temp dir (or report a clear error:
+   │                bad ref, auth failure, repo not found, network)
+   ├─ scan.js       find skills/*/SKILL.md and agents/*.md
+   ├─ targets.js    resolve the destination path for each (target, type) pair
+   ├─ convert.js    rewrite agent frontmatter for the target
+   ├─ fsops.js      copy, then hash what was written
+   └─ manifest.js   record source hash + installed hash in ~/.morf/installed.json
 ```
 
-Coming from `ray`? Your existing `~/.ray` config and manifest are migrated automatically on first run.
+The manifest is what makes `update`, `uninstall` and the local-edit check possible. Before overwriting, morf hashes the file on disk and compares it with the hash it recorded at install time. A mismatch means you edited it, so morf skips it unless you pass `--force`.
 
-## Safety
+Configuration lives in `~/.morf/config.json`. Both files are written atomically. A corrupt manifest is backed up and replaced rather than crashing the command. If you used the earlier `ray` tool, its `~/.ray` config and manifest are migrated on first run.
 
-- Never overwrites local edits without `--force` (content-hash tracked in `~/.morf/installed.json`)
-- Never modifies the source repo
-- Zero runtime dependencies — the entire tool is auditable stdlib Node
-- `--dry-run` everywhere
+The whole tool is plain Node.js with zero runtime dependencies. Frontmatter is parsed by hand, so no YAML library is needed.
 
-## Contributing
+## Project layout
 
-Issues and PRs are welcome — this is early-stage and there's a lot of surface left (see Roadmap).
-Before opening a PR, please:
+```
+bin/cli.js        entry point
+src/cli.js        argument parsing and command dispatch
+src/commands/     install, update, uninstall, list, config
+src/convert.js    frontmatter and tool-name conversion per target
+src/targets.js    per-tool install locations and scope
+src/git.js        clone and git error classification
+src/manifest.js   ~/.morf/installed.json
+src/config.js     ~/.morf/config.json
+src/scan.js       discover skills and agents in a repo or on disk
+src/sanitize.js   name sanitization and path-traversal guards
+src/table.js      aligned terminal tables
+src/log.js        colors, status symbols, spinner
+src/messages.js   all user-facing strings
+test/             node --test suites
+docs/design/      design notes
+```
+
+## Development
 
 ```sh
-git clone https://github.com/PLACEHOLDER/morf.git
+git clone https://github.com/romivol/morf.git
 cd morf
-node --test        # full suite should pass
+npm install
+npm test        # node --test
+npm run lint    # eslint
+node bin/cli.js --help
 ```
 
-Good first contributions: a new target's conversion rules, README fixes, or test coverage for
-edge cases in `src/convert.js`.
+CI runs lint and tests on Node 18, 20 and 22. See [CONTRIBUTING.md](./CONTRIBUTING.md) for conventions.
 
 ## Roadmap
 
-- Rules, prompts, hooks & MCP-server conversion (full 6-primitive matrix)
-- Public registry: `morf search` & short-name installs
-- Lockfile & `morf sync` for reproducible setups
+- Conversion for rules, prompts, hooks and MCP server definitions
+- Public registry with `morf search` and short-name installs
+- Lockfile and `morf sync` for reproducible setups
 - `morf publish`
 
 ## License
 
-MIT © Romi Volkovich
+MIT. See [LICENSE](./LICENSE).

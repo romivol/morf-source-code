@@ -11,7 +11,7 @@ getting set up and the conventions the project follows.
 ## Getting started
 
 ```bash
-git clone https://github.com/PLACEHOLDER/morf.git
+git clone https://github.com/romivol/morf.git
 cd morf
 npm install
 npm test        # run the test suite (node --test)
@@ -35,9 +35,11 @@ src/            Library code
   sanitize.js     untrusted-name sanitization + path-traversal guards
   scan.js         discover skills/agents in a repo or on disk
   source.js       repo-URL normalization
+  table.js        aligned terminal table rendering
   messages.js     all user-facing strings
   log.js          colored/ASCII terminal output + spinner
 test/           node --test suites (mirror src/ by unit)
+docs/design/    design notes and specs
 ```
 
 ## Conventions

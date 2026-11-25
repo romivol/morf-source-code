@@ -27,6 +27,16 @@
 - **Hooks and MCP servers are never installed silently, in or out of a project.** Outside a project, `morf install` and `morf update` used to install them like any other item, so a bare `morf install <repo>` could put a command-running hook into your tool config without asking. They are now listed with the command each will run and need a yes (default No); with no terminal or in CI they need `--allow-exec`, and without it they are skipped and the command exits 1. Removal never needs the flag.
 - **Untrusted text is escaped before it is printed.** Repo, ref, item names, hook and MCP commands, and git's own error text are shown with control characters (ESC, CR, backspace, newlines) and bidirectional-override characters made visible, so they cannot hide or rewrite the plan a user is asked to approve.
 - Validation errors no longer repeat credentials found in a repository URL.
+- **Symbolic links and submodules in a source repository are refused.** A link inside a skill used to be copied as a link and was not part of the content hash. An item that is a link or a submodule, or contains one, now fails with a message naming it, and nothing from it is installed. morf's own checkouts never create a link on disk.
+- **Text containing morf's own block markers is refused.** A rule written into `AGENTS.md` could contain an end marker and leave text behind when removed.
+- **Names from the install record are checked before they are used in a path.** A hand-edited record can no longer address another item.
+- `morf config list` escapes the values it reads from the config file.
+
+### Behaviour changes
+
+- **`http://` and `git://` repository URLs are rejected**, on the command line as well as in the project files. Both are unencrypted and unauthenticated, so anyone on the network path can replace what is fetched; and keeping the list of transports as short as possible (`https`, `ssh`, local files) is what lets git itself refuse helper transports such as `ext::`. Use the `https://` or `ssh://` address of the same repository.
+- **Outside a project, hooks and MCP servers now need a yes, or `--allow-exec` when there is no terminal.** A script that runs `morf install` unattended and relies on hooks or MCP servers being installed must add `--allow-exec`.
+- **A source repository containing symbolic links or submodules** no longer installs the items that contain them.
 
 ### Changed
 

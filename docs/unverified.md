@@ -72,5 +72,3 @@ Known behaviour that is probably not what a user expects. These are not unverifi
 | What | Detail |
 |---|---|
 | `morf uninstall <repo> ...` ignores the repo | `uninstall` accepts a repo as its first argument, as `install` does, and then does nothing with it: items are matched by type, name and tool only. `morf uninstall github.com/acme/agents --all` therefore removes everything morf manages, not only what came from that repo. Left as it is for now; either reject the argument or filter by it. |
-| A symlink inside a skill | A skill directory is copied as it is, and the content hash covers regular files only. A symbolic link in a source repository's skill is copied as a link and is not part of the hash, so what it points to is not pinned by the lockfile. Not exploitable for writing outside the destination, but it should either be refused or resolved and hashed. |
-| A rule that contains morf's own end marker | A rule's text is written between marker lines in `AGENTS.md` (Codex). If the text itself contains the end-marker line, the block ends early and the rest is left behind when the rule is removed. |

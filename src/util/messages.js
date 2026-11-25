@@ -130,6 +130,8 @@ export const project = {
   cancelled:             `Cancelled. Nothing was changed.`,
   execNeedsFlag:         `Hooks and MCP servers were not installed: this is a non-interactive run. Re-run with --allow-exec to install them.`,
   execDeclined:          `Hooks and MCP servers were not installed.`,
+  execSkippedDeclined: (list) => t`Not installed, because you declined: ${list}. Run the command again and answer yes, or pass --allow-exec, to install them.`,
+  execSkippedNoFlag:   (list) => t`Not installed, because --allow-exec was not given: ${list}.`,
   execSkippedNote:       `not approved (hooks and MCP servers run commands)`,
   dryRun:                `[dry-run] This is the plan only. Nothing was changed.`,
   needYes:               `Not applied: this is a non-interactive run. Re-run with --yes to apply.`,

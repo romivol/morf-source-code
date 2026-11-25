@@ -10,7 +10,7 @@ import { createTargetTable } from '../util/table.js';
 import { installOne, execToApprove, largeSize } from '../install/engine.js';
 import { approveExec, execCommands, defaultIo, isInteractive } from '../project/approve.js';
 import { project as P } from '../util/messages.js';
-import { countResult, printSummary } from './install.js';
+import { countResult, printSummary, describeSkippedExec } from './install.js';
 import * as M from '../util/messages.js';
 
 export async function updateCommand(args, io = defaultIo()) {
@@ -18,6 +18,7 @@ export async function updateCommand(args, io = defaultIo()) {
 
   if (refOverride) assertSafeRef(refOverride);
   let execRefused = false;
+  const skippedExec = [];
   const config = await readConfig();
 
   const manifest = await readManifest();
@@ -102,6 +103,7 @@ export async function updateCommand(args, io = defaultIo()) {
           const exec = await execToApprove(pairs, { manifest, force, config }, execCommands);
           if (!(await approveExec(exec, { allowExec: args.allowExec }, io))) {
             blocked = exec;
+            skippedExec.push(...exec);
             execRefused = execRefused || !isInteractive(io, {});
           }
         }
@@ -154,6 +156,10 @@ export async function updateCommand(args, io = defaultIo()) {
   if (dryRun) { log.dim(M.dry.previewDone); return; }
 
   printSummary(counts);
+  if (skippedExec.length > 0) {
+    const list = describeSkippedExec(skippedExec);
+    log.info(execRefused ? P.execSkippedNoFlag(list) : P.execSkippedDeclined(list));
+  }
   if (counts.failed > 0 || execRefused) process.exit(1);
 }
 

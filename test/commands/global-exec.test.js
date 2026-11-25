@@ -64,6 +64,9 @@ test('interactive, declined (or just Enter): neither is installed; the agent sti
     assert.ok(!mcpInstalled(), 'MCP server installed after a no');
     assert.ok(agentInstalled(), 'the agent keeps installing as before');
     assert.match(res.out, /not approved/);
+    // The summary names what was left out and why, in plain words, after the counts.
+    assert.match(res.out, /Not installed, because you declined: hook 'guard' \(claude\), mcp 'context7' \(claude\)\. Run the command again and answer yes, or pass --allow-exec/);
+    assert.ok(res.out.indexOf('Not installed, because you declined') > res.out.indexOf('Installed 1'), 'the note comes after the summary counts');
     await reset();
   }
 });
@@ -88,6 +91,7 @@ test('no terminal, no flag: exit 1, the commands are shown, no hook or MCP serve
     assert.equal(res.status, 1, res.stdout + res.stderr);
     assert.match(res.stdout, /npx -y ctx7/);
     assert.match(res.stdout, /--allow-exec/);
+    assert.match(res.stdout, /Not installed, because --allow-exec was not given: hook 'guard' \(claude\), mcp 'context7' \(claude\)\./);
     assert.ok(!hooksInstalled(), `hook installed by: morf ${argv.join(' ')}`);
     assert.ok(!mcpInstalled(), `MCP server installed by: morf ${argv.join(' ')}`);
     assert.ok(agentInstalled(), 'other kinds keep installing');

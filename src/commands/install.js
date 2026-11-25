@@ -27,6 +27,7 @@ export async function installCommand(args, io = defaultIo()) {
   const counts = { installed: 0, updated: 0, upToDate: 0, skipped: 0, failed: 0 };
   const concreteTargets = expandTargets(targets);
   let execRefused = false;
+  const skippedExec = [];
 
   await withTempClone(repo, ref, async (cloneDir) => {
     const available = await scanClone(cloneDir);
@@ -61,6 +62,7 @@ export async function installCommand(args, io = defaultIo()) {
       const exec = await execToApprove(pairs, { manifest, force, config }, execCommands);
       if (!(await approveExec(exec, { allowExec: args.allowExec }, io))) {
         blocked = exec;
+        skippedExec.push(...exec);
         execRefused = !isInteractive(io, {});
       }
     }
@@ -108,8 +110,23 @@ export async function installCommand(args, io = defaultIo()) {
   }
 
   printSummary(counts);
+  // Say plainly which hooks and MCP servers were left out, and why.
+  if (skippedExec.length > 0) {
+    const list = describeSkippedExec(skippedExec);
+    log.info(execRefused ? P.execSkippedNoFlag(list) : P.execSkippedDeclined(list));
+  }
   // A non-interactive run that could not install what it was asked to is a failure.
   if (counts.failed > 0 || execRefused) process.exit(1);
+}
+
+// "hook 'guard' (claude), mcp 'context7' (claude, codex)" for the summary line.
+export function describeSkippedExec(blocked) {
+  const byItem = new Map();
+  for (const b of blocked) {
+    const key = `${b.type} '${b.name}'`;
+    byItem.set(key, [...(byItem.get(key) || []), b.target]);
+  }
+  return [...byItem.entries()].map(([item, targets]) => `${item} (${[...new Set(targets)].join(', ')})`).join(', ');
 }
 
 export function countResult(counts, result) {

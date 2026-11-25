@@ -5,7 +5,7 @@
 import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import { dirname } from 'node:path';
-import { ensureDir } from './fsops.js';
+import { ensureDir } from '../util/fs.js';
 
 // Remove // and /* */ comments and trailing commas, leaving string contents intact.
 export function stripJsonComments(text) {

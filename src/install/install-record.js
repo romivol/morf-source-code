@@ -4,8 +4,8 @@
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import { ensureDir } from './fsops.js';
-import { log } from './log.js';
+import { ensureDir } from '../util/fs.js';
+import { log } from '../util/log.js';
 
 const MANIFEST_DIR  = join(homedir(), '.morf');
 const MANIFEST_PATH = join(MANIFEST_DIR, 'installed.json');

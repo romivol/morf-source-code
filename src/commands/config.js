@@ -2,9 +2,9 @@ import {
   readConfig, setDefaultRepo, unsetDefaultRepo,
   setDefaultTarget, unsetDefaultTarget,
   addAlias, removeAlias, setConvertTools,
-} from '../config.js';
-import { isValidTarget, listTargets, ALL_TARGET } from '../targets.js';
-import { log } from '../log.js';
+} from '../util/config.js';
+import { isValidTarget, listTargets, ALL_TARGET } from '../install/targets.js';
+import { log } from '../util/log.js';
 
 const USAGE = `Usage:
   morf config default <tool>       Set the default install target (${listTargets().join(', ')})

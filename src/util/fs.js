@@ -52,7 +52,7 @@ async function hashDir(dir) {
 // OS path separator and locale sort, which is fine for one machine. A lockfile
 // is shared between machines, so its hashes use this instead: forward-slash
 // relative paths, byte-order sort, raw file bytes. Callers must hand it a raw
-// checkout (see git.js openClone) so the bytes are the ones git stores.
+// checkout (see repo/git.js openClone) so the bytes are the ones git stores.
 
 // entries: [{ rel, buf }]. Pure, so tests can feed it either path separator.
 export function portableDigest(entries) {

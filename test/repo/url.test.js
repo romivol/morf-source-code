@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { normalizeRepo } from '../src/source.js';
+import { normalizeRepo } from '../../src/repo/url.js';
 
 test('normalizeRepo strips scheme, .git suffix and lowercases the host', () => {
   assert.equal(normalizeRepo('https://GitHub.com/Foo/Bar.git'), 'github.com/Foo/Bar');

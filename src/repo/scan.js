@@ -1,6 +1,6 @@
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
-import { parseJsonc } from './jsonfile.js';
+import { parseJsonc } from '../install/json-file.js';
 
 // Every primitive morf understands, in display/install order.
 export const TYPES = ['skill', 'agent', 'rule', 'prompt', 'hook', 'mcp'];

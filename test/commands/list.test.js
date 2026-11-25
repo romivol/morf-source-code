@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { shortRepo } from '../src/commands/list.js';
+import { shortRepo } from '../../src/commands/list.js';
 
 test('shortRepo shortens an HTTPS URL to owner/repo', () => {
   assert.equal(shortRepo('https://github.com/Foo/Bar.git'), 'Foo/Bar');

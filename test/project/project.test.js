@@ -6,12 +6,12 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
   sandbox, tmp, cleanup, makeRepo, fakeIo, run, snapshot, read, readJson, write, exists, FIXTURE,
-} from './helpers.js';
+} from '../helpers.js';
 
 const m = await sandbox();
 after(cleanup);
 
-const CLI = fileURLToPath(new URL('../bin/cli.js', import.meta.url));
+const CLI = fileURLToPath(new URL('../../bin/cli.js', import.meta.url));
 const NAMES = () => ({ skill: [], agent: [], rule: [], prompt: [], hook: [], mcp: [] });
 const names = (over) => ({ ...NAMES(), ...over });
 const ctx = (root, io, morfVersion = '9.9.9') => ({ root, cwd: root, io: io || fakeIo(), morfVersion });

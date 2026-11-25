@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { installSummary } from '../src/messages.js';
+import { installSummary } from '../../src/util/messages.js';
 
 test('installSummary returns null when nothing happened', () => {
   assert.equal(installSummary({}), null);

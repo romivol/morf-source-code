@@ -1,12 +1,12 @@
 import readline from 'node:readline';
-import { expandTargets } from '../targets.js';
-import { TYPES } from '../scan.js';
-import { sanitizeName } from '../sanitize.js';
-import { readManifest, writeManifest, getRecord, deleteRecord, recordsFor } from '../manifest.js';
-import { locate, remove } from '../store.js';
-import { log } from '../log.js';
-import { createTargetTable } from '../table.js';
-import * as M from '../messages.js';
+import { expandTargets } from '../install/targets.js';
+import { TYPES } from '../repo/scan.js';
+import { sanitizeName } from '../util/sanitize.js';
+import { readManifest, writeManifest, getRecord, deleteRecord, recordsFor } from '../install/install-record.js';
+import { locate, remove } from '../install/store.js';
+import { log } from '../util/log.js';
+import { createTargetTable } from '../util/table.js';
+import * as M from '../util/messages.js';
 
 export async function uninstallCommand(args) {
   const { names, all, targets, force, dryRun } = args;

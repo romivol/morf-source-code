@@ -9,7 +9,7 @@
 // All functions take the document text and return the new text. Empty or
 // missing text is treated as an empty object.
 
-import { canonical } from './jsonfile.js';
+import { canonical } from './json-file.js';
 
 const BOM = String.fromCharCode(0xFEFF);
 

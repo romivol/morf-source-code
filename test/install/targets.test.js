@@ -9,7 +9,7 @@ import {
   isValidTarget,
   resolveDestination,
   detectTargets,
-} from '../src/targets.js';
+} from '../../src/install/targets.js';
 
 test('listTargets includes codex and totals 7', () => {
   const targets = listTargets();

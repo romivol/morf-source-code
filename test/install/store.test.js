@@ -3,9 +3,9 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, writeFileSync, existsSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { currentHash, write, remove } from '../src/store.js';
-import { scanRepo } from '../src/scan.js';
-import { parseJsonc } from '../src/jsonfile.js';
+import { currentHash, write, remove } from '../../src/install/store.js';
+import { scanRepo } from '../../src/repo/scan.js';
+import { parseJsonc } from '../../src/install/json-file.js';
 
 // Store functions take a `loc`; build them by hand so tests stay in a temp dir.
 function tmp() {

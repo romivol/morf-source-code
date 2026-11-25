@@ -348,14 +348,14 @@ An MCP server (`mcp/context7.json`), stdio or remote:
 ```
 morf install <repo>
    │
-   ├─ git.js         shallow-clone the repo to a temp dir (or report a clear error:
+   ├─ repo/git.js         shallow-clone the repo to a temp dir (or report a clear error:
    │                 bad ref, auth failure, repo not found, network)
-   ├─ scan.js        find skills, agents, rules, prompts, hooks and MCP servers
-   ├─ targets.js     resolve where each (target, type) pair is stored, and how
-   ├─ convert.js     rewrite agents for the target
-   ├─ primitives.js  rewrite rules, prompts, hooks and MCP servers for the target
-   ├─ store.js       write the file, or merge the entry into a shared config file
-   └─ manifest.js    update the install record, ~/.morf/installed.json
+   ├─ repo/scan.js        find skills, agents, rules, prompts, hooks and MCP servers
+   ├─ install/targets.js     resolve where each (target, type) pair is stored, and how
+   ├─ convert/agents.js     rewrite agents for the target
+   ├─ convert/primitives.js  rewrite rules, prompts, hooks and MCP servers for the target
+   ├─ install/store.js       write the file, or merge the entry into a shared config file
+   └─ install/install-record.js    update the install record, ~/.morf/installed.json
 ```
 
 The install record is what makes `update`, `uninstall` and the local-edit check possible. Before overwriting, morf hashes what is on disk (the file, the config entry, or the marked block) and compares it with the hash it recorded at install time. A mismatch means you edited it, so morf skips it unless you pass `--force`.
@@ -370,23 +370,23 @@ The whole tool is plain Node.js with zero runtime dependencies. Frontmatter, JSO
 bin/cli.js          entry point
 src/cli.js          argument parsing and command dispatch
 src/commands/       install, update, uninstall, list, config, project (init, sync, project mode)
-src/targets.js      per-tool storage table, scope and detection
-src/scan.js         discover primitives in a source repo
-src/convert.js      agent conversion per target
-src/primitives.js   rule, prompt, hook and MCP conversion per target
-src/frontmatter.js  line-based frontmatter helpers
-src/store.js        read, write and remove an installed item (files and merged config)
-src/jsonfile.js     tolerant JSON(C) reading, atomic writes, canonical hashing
-src/jsonedit.js     edits to shared JSON(C) files that leave every other byte alone
-src/project.js      the project file (morf.json) and the lockfile (morf.lock.json)
-src/approve.js      the plan and the approval gate (--yes, --allow-exec)
-src/git.js          clone and git error classification
-src/manifest.js     the install record, ~/.morf/installed.json
-src/config.js       ~/.morf/config.json
-src/sanitize.js     name sanitization and path-traversal guards
-src/table.js        aligned terminal tables
-src/log.js          colors, status symbols, spinner
-src/messages.js     user-facing strings
+src/install/targets.js      per-tool storage table, scope and detection
+src/repo/scan.js         discover primitives in a source repo
+src/convert/agents.js      agent conversion per target
+src/convert/primitives.js   rule, prompt, hook and MCP conversion per target
+src/convert/frontmatter.js  line-based frontmatter helpers
+src/install/store.js        read, write and remove an installed item (files and merged config)
+src/install/json-file.js     tolerant JSON(C) reading, atomic writes, canonical hashing
+src/install/json-edit.js     edits to shared JSON(C) files that leave every other byte alone
+src/project/project-file-and-lockfile.js      the project file (morf.json) and the lockfile (morf.lock.json)
+src/project/approve.js      the plan and the approval gate (--yes, --allow-exec)
+src/repo/git.js          clone and git error classification
+src/install/install-record.js     the install record, ~/.morf/installed.json
+src/util/config.js       ~/.morf/config.json
+src/util/sanitize.js     name sanitization and path-traversal guards
+src/util/table.js        aligned terminal tables
+src/util/log.js          colors, status symbols, spinner
+src/util/messages.js     user-facing strings
 test/               node --test suites
 docs/design/        design notes
 docs/unverified.md  paths and behaviours not yet checked in the real tools

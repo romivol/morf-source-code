@@ -3,14 +3,14 @@
 // They need internet access, so they are skipped unless MORF_NETWORK_TESTS=1.
 // CI sets it; a plain `npm test` stays offline.
 //
-//   MORF_NETWORK_TESTS=1 node --test test/network.test.js
+//   MORF_NETWORK_TESTS=1 node --test test/repo/network.test.js
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
-import { openClone } from '../src/git.js';
-import { portableHashPath } from '../src/fsops.js';
+import { openClone } from '../../src/repo/git.js';
+import { portableHashPath } from '../../src/util/fs.js';
 
 const skip = process.env.MORF_NETWORK_TESTS ? false : 'set MORF_NETWORK_TESTS=1 to run network tests';
 

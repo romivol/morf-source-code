@@ -11,14 +11,14 @@ morf (`@romivol/morf`) is a zero-dependency Node.js CLI that installs AI-tool pr
 ```sh
 npm install                                # dev deps only (eslint); there are no runtime deps
 npm test                                   # node --test (built-in runner, no framework)
-node --test test/convert.test.js           # one test file
+node --test test/convert/agents.test.js           # one test file
 node --test --test-name-pattern="codex"    # tests whose name matches a pattern
 npm run lint                               # eslint . (flat config, ESLint 9)
 node bin/cli.js --help                     # run the CLI from source
-MORF_NETWORK_TESTS=1 node --test test/network.test.js   # tests that fetch from GitHub (skipped otherwise)
+MORF_NETWORK_TESTS=1 node --test test/repo/network.test.js   # tests that fetch from GitHub (skipped otherwise)
 ```
 
-CI (`.github/workflows/ci.yml`) runs `npm run lint` then `npm test` on Linux, macOS and Windows with Node 18 and the current LTS, with `MORF_NETWORK_TESTS=1`. Avoid APIs newer than Node 18. `test/portable-hash.test.js` holds a hash constant all three systems must reproduce; changing it invalidates every existing lockfile.
+CI (`.github/workflows/ci.yml`) runs `npm run lint` then `npm test` on Linux, macOS and Windows with Node 18 and the current LTS, with `MORF_NETWORK_TESTS=1`. Avoid APIs newer than Node 18. `test/util/portable-hash.test.js` holds a hash constant all three systems must reproduce; changing it invalidates every existing lockfile.
 
 ### Trying the CLI safely
 
@@ -37,9 +37,9 @@ A local directory works as the repo argument as long as it is a git repository w
 
 ### The pipeline
 
-`installCommand` → `withTempClone` (`git.js`) → `scanRepo` (`scan.js`) → for each target × item, `installOne` (`commands/install.js`, also used by `update`):
+`installCommand` → `withTempClone` (`repo/git.js`) → `scanRepo` (`repo/scan.js`) → for each target × item, `installOne` (`commands/install.js`, also used by `update`):
 
-1. `locate(target, type, name)` in `store.js` resolves the mapping from `targets.js` into a `loc`.
+1. `locate(target, type, name)` in `install/store.js` resolves the mapping from `install/targets.js` into a `loc`.
 2. `currentHash(loc, record)` hashes what is on disk; a mismatch with the manifest's `installedHash` (or an existing item with no record) is a local change and is skipped unless `--force`.
 3. `render(item, loc, config)` converts the source for the target.
 4. `write(loc, rendered, record)` stores it and returns the installed hash.
@@ -47,11 +47,11 @@ A local directory works as the repo argument as long as it is a git repository w
 
 `installOne` returns `{ result, tagName, note }`; the caller counts and prints the row. In dry-run it prints its own lines and returns `tagName: null`.
 
-### Types and source layout (`scan.js`)
+### Types and source layout (`repo/scan.js`)
 
 `TYPES = ['skill', 'agent', 'rule', 'prompt', 'hook', 'mcp']` drives the CLI flags and selection loops. Sources: `skills/<n>/SKILL.md`, `agents/<n>.md`, `rules/<n>.md|.mdc`, `prompts/<n>.md` (also `commands/`), `hooks/<n>.json`, `mcp/<n>.json`, and a root `.mcp.json`/`mcp.json` map (one item per server). Hook and MCP items carry a parsed `payload`; an unparseable file is returned with `invalid` set so install reports a failed row. The source format for everything is Claude Code's.
 
-### Targets (`targets.js`)
+### Targets (`install/targets.js`)
 
 One table maps every (target, type) to a storage mapping. Four kinds:
 
@@ -62,33 +62,33 @@ One table maps every (target, type) to a storage mapping. Four kinds:
 
 `TARGETS` is a snapshot built at import time from `process.cwd()` and from which config files exist (`pickExisting`). Pass `cwd` to `resolveDestination`/`getTargets`/`detectTargets` for another directory. Windsurf resolves to `.devin/` unless the project has only a legacy `.windsurf/` (then agents are rules, `asRule: true`); hooks and MCP always use `.devin/`, and their presence must not flip the legacy check.
 
-Adding a target or changing a path touches: the `targets.js` table, the converters (`convert.js` for agents, `primitives.js` for the rest), the README tables, and `test/targets.test.js` (asserts 7 targets).
+Adding a target or changing a path touches: the `install/targets.js` table, the converters (`convert/agents.js` for agents, `convert/primitives.js` for the rest), the README tables, and `test/install/targets.test.js` (asserts 7 targets).
 
 ### Conversion
 
-- `frontmatter.js`: line-based helpers (`getScalar`, `getList`, `getMap`, `setField`, `removeField`, `commentField`, `commentFieldsExcept`). There is no YAML library and adding one would break the no-dependency rule.
-- `convert.js` `adaptAgentForTarget(text, target, { name, asRule })`: Claude ↔ OpenCode/Kilo tools map, Cursor subagent (`readonly`), Copilot tool aliases, Devin `allowed-tools`, Codex TOML.
-- `primitives.js`: `convertRule`, `convertPrompt` return `{ text, notes }`; `convertHook` and `convertMcp` return `{ value, notes }` for JSON merges or `{ text, notes }` for files/blocks; `convertHook` may return `{ unsupported }`. For OpenCode/Kilo a hook becomes generated plugin source with exactly one named export (the plugin loader calls every export).
+- `convert/frontmatter.js`: line-based helpers (`getScalar`, `getList`, `getMap`, `setField`, `removeField`, `commentField`, `commentFieldsExcept`). There is no YAML library and adding one would break the no-dependency rule.
+- `convert/agents.js` `adaptAgentForTarget(text, target, { name, asRule })`: Claude ↔ OpenCode/Kilo tools map, Cursor subagent (`readonly`), Copilot tool aliases, Devin `allowed-tools`, Codex TOML.
+- `convert/primitives.js`: `convertRule`, `convertPrompt` return `{ text, notes }`; `convertHook` and `convertMcp` return `{ value, notes }` for JSON merges or `{ text, notes }` for files/blocks; `convertHook` may return `{ unsupported }`. For OpenCode/Kilo a hook becomes generated plugin source with exactly one named export (the plugin loader calls every export).
 
 Unsupported fields are commented out in place with a `(commented by morf: <reason>)` suffix, never deleted. `notes` become the `adapted for <target>: ...` text on the row. `adaptAgentForTarget` falls back to the unchanged input on any parse failure. `morf config convert off` only disables agent frontmatter conversion; the other primitives must convert to be valid.
 
 Bump `CONVERTER_VERSION` in `commands/install.js` whenever converter output changes: records with an older `conv` are re-rendered on the next install/update even when the source hash is unchanged.
 
-### Shared config files (`store.js`, `jsonfile.js`)
+### Shared config files (`install/store.js`, `install/json-file.js`)
 
 morf only adds and removes its own entries. Rules that must hold:
 
 - Never overwrite a file that fails to parse: `readJsonFile` throws and the item fails.
-- Shared JSON(C) files are edited as text by `jsonedit.js` (`setPath`, `removePath`, `arrayAppend`, `arrayRemove`), which splices only the affected span. Comments, key order, spacing and line endings of everything else are preserved, and add-then-remove restores the original bytes. Never parse → modify → `JSON.stringify` a file the user owns.
+- Shared JSON(C) files are edited as text by `install/json-edit.js` (`setPath`, `removePath`, `arrayAppend`, `arrayRemove`), which splices only the affected span. Comments, key order, spacing and line endings of everything else are preserved, and add-then-remove restores the original bytes. Never parse → modify → `JSON.stringify` a file the user owns.
 - Marker blocks (`AGENTS.md`, `config.toml`) touch only the lines between morf's begin/end markers. A file with no final newline must not gain one.
 - Global mode only: `locate` sets `loc.backup` for a shared file under the home directory, and the store saves `<file>.morf-backup` once before the first real change. Project mode never backs up.
 - Merged hooks are anonymous, so the installed value is stored as `payload` on the manifest record and matched by deep equality for hashing and removal.
 - A TOML table that already exists outside morf's markers is never duplicated: the write fails with a message.
 - All writes are temp-file-then-rename.
 
-### Project mode (`project.js`, `approve.js`, `commands/project.js`)
+### Project mode (`project/project-file-and-lockfile.js`, `project/approve.js`, `commands/project.js`)
 
-Three names, used in every user-visible string: the **project file** (`morf.json`), the **lockfile** (`morf.lock.json`), the **install record** (`~/.morf/installed.json`). Never write "manifest" in anything a user sees; the module is still `manifest.js` internally.
+Three names, used in every user-visible string: the **project file** (`morf.json`), the **lockfile** (`morf.lock.json`), the **install record** (`~/.morf/installed.json`). Never write "manifest" in anything a user sees; the module is still `install/install-record.js` internally.
 
 `cli.js` calls `findProjectRoot(cwd)`; with a root (and no `--global`) `install`, `update`, `uninstall` and `sync` go to `commands/project.js`. Those functions take `(args, ctx)` with `ctx = { root, cwd, io, morfVersion }`, return an exit code, and never call `process.exit`, so tests drive them directly with a fake `io` (`test/helpers.js`).
 
@@ -99,27 +99,27 @@ Three names, used in every user-visible string: the **project file** (`morf.json
 - **Sync** (`syncCommand`, also `update` via `flags.update`): validate every source (fetch pinned commit, compare hashes) before anything else; any failure returns 1 with nothing changed. New items in an already-locked source resolve at the pinned commit.
 - **Shared destinations** (`mapping.shared`): each owning tool has its own record carrying `physical`; `removeInstalled` deletes from disk only when no co-owner record is left. A shared `.mcp.json` entry is rendered in the Copilot shape for every owner.
 - **Adoption.** In project mode an item on disk with no record, identical to what morf would write (`matchesRendered`), is treated as installed. This is what makes committed tool files work on a fresh clone.
-- `project.js` writes both files through `stableStringify` (sorted, compact one-line leaf objects) and only when bytes change. `writeLockfile` ignores `morfVersion` when deciding whether anything changed.
+- `project/project-file-and-lockfile.js` writes both files through `stableStringify` (sorted, compact one-line leaf objects) and only when bytes change. `writeLockfile` ignores `morfVersion` when deciding whether anything changed.
 
 `docs/unverified.md` lists every path and behaviour not yet checked in a real tool. Add to it when implementing from documentation alone, and move entries to its "Verified" table when confirmed.
 
 ### State (`~/.morf/`)
 
-- `installed.json` (`manifest.js`): version 3, items keyed `type:name:target` for global installs and `type:name:target@<projectRoot>` for project installs. Records hold `project` (`''` when global), `sourceHash` (source repo copy, or the payload for hook/MCP; the lockfile hash in project mode), `installedHash` (what was written after conversion), `conv`, and optionally `payload` and `physical`. Read hashes through `getInstalledHash`/`getSourceHash`, which fall back to the legacy `hash` field. Use `recordsFor(manifest, project)`; the global commands must only ever see `recordsFor(manifest, '')`.
-- `config.json` (`config.js`): default target, default repo, `@alias` map, `convertTools`.
+- `installed.json` (`install/install-record.js`): version 3, items keyed `type:name:target` for global installs and `type:name:target@<projectRoot>` for project installs. Records hold `project` (`''` when global), `sourceHash` (source repo copy, or the payload for hook/MCP; the lockfile hash in project mode), `installedHash` (what was written after conversion), `conv`, and optionally `payload` and `physical`. Read hashes through `getInstalledHash`/`getSourceHash`, which fall back to the legacy `hash` field. Use `recordsFor(manifest, project)`; the global commands must only ever see `recordsFor(manifest, '')`.
+- `config.json` (`util/config.js`): default target, default repo, `@alias` map, `convertTools`.
 
-A corrupt manifest is renamed to `.bak.<timestamp>` and replaced. v1 manifests and the legacy `~/.ray/` directory are migrated on read. `source.js` `normalizeRepo` produces the `repoKey` used to treat different URL spellings as the same repo.
+A corrupt manifest is renamed to `.bak.<timestamp>` and replaced. v1 manifests and the legacy `~/.ray/` directory are migrated on read. `repo/url.js` `normalizeRepo` produces the `repoKey` used to treat different URL spellings as the same repo.
 
 ### Output
 
-All terminal output goes through `log.js`; `table.js` renders the `TARGET / NAME / STATUS` tables, streaming rows as items finish (rationale in `docs/design/table-output.md`). Symbols switch to ASCII tokens with `--ascii`, `MORF_ASCII=1`, or automatically when stdout is not a TTY, so piped output differs from a terminal. Color is off when not a TTY or when `NO_COLOR` is set.
+All terminal output goes through `util/log.js`; `util/table.js` renders the `TARGET / NAME / STATUS` tables, streaming rows as items finish (rationale in `docs/design/table-output.md`). Symbols switch to ASCII tokens with `--ascii`, `MORF_ASCII=1`, or automatically when stdout is not a TTY, so piped output differs from a terminal. Color is off when not a TTY or when `NO_COLOR` is set.
 
 ## Conventions
 
 - ES modules throughout; import built-ins with the `node:` prefix.
 - No runtime dependencies. The published package must stay standard-library only.
-- User-facing strings belong in `src/messages.js`.
+- User-facing strings belong in `src/util/messages.js`.
 - Expected errors produce a one-line message and a non-zero exit code, never a stack trace. Command modules call `process.exit(1)` after printing a summary when anything failed.
 - Two-space indent, single quotes, semicolons, LF line endings (`.editorconfig`). The checkout may have CRLF working files under `core.autocrlf`; that is not a content change.
-- Tests live in `test/<unit>.test.js`. Converters are tested as pure functions; `test/store.test.js` builds `loc` objects by hand against a temp directory so nothing touches the real home directory.
+- Tests live in `test/<unit>.test.js`. Converters are tested as pure functions; `test/install/store.test.js` builds `loc` objects by hand against a temp directory so nothing touches the real home directory.
 - Tool formats change often. Before changing a path or field for a tool, check that tool's current documentation rather than relying on memory.

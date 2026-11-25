@@ -1,13 +1,13 @@
-import { assertGitAvailable, withTempClone } from '../git.js';
-import { scanRepo, TYPES } from '../scan.js';
-import { sanitizeName } from '../sanitize.js';
-import { expandTargets, targetScope } from '../targets.js';
-import { readManifest, writeManifest, recordsFor } from '../manifest.js';
-import { readConfig } from '../config.js';
-import { log } from '../log.js';
-import { createTargetTable } from '../table.js';
+import { assertGitAvailable, withTempClone } from '../repo/git.js';
+import { scanRepo, TYPES } from '../repo/scan.js';
+import { sanitizeName } from '../util/sanitize.js';
+import { expandTargets, targetScope } from '../install/targets.js';
+import { readManifest, writeManifest, recordsFor } from '../install/install-record.js';
+import { readConfig } from '../util/config.js';
+import { log } from '../util/log.js';
+import { createTargetTable } from '../util/table.js';
 import { installOne, countResult, printSummary } from './install.js';
-import * as M from '../messages.js';
+import * as M from '../util/messages.js';
 
 export async function updateCommand(args) {
   const { names, all, targets, force, ref: refOverride, dryRun } = args;

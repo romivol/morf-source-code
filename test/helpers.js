@@ -33,12 +33,12 @@ export async function sandbox() {
   delete process.env.CI;
   const [projectCmds, project, source, manifest, fsops, git, approve] = await Promise.all([
     import('../src/commands/project.js'),
-    import('../src/project.js'),
-    import('../src/source.js'),
-    import('../src/manifest.js'),
-    import('../src/fsops.js'),
-    import('../src/git.js'),
-    import('../src/approve.js'),
+    import('../src/project/project-file-and-lockfile.js'),
+    import('../src/repo/url.js'),
+    import('../src/install/install-record.js'),
+    import('../src/util/fs.js'),
+    import('../src/repo/git.js'),
+    import('../src/project/approve.js'),
   ]);
   return { home, ...projectCmds, ...project, ...source, ...manifest, ...fsops, ...git, ...approve };
 }

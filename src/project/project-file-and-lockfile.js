@@ -10,10 +10,10 @@
 
 import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { atomicWrite, readTextOrNull, stableStringify, canonical } from './jsonfile.js';
-import { TYPES } from './scan.js';
-import { listTargets } from './targets.js';
-import { project as P } from './messages.js';
+import { atomicWrite, readTextOrNull, stableStringify, canonical } from '../install/json-file.js';
+import { TYPES } from '../repo/scan.js';
+import { listTargets } from '../install/targets.js';
+import { project as P } from '../util/messages.js';
 
 export const PROJECT_FILE = 'morf.json';
 export const LOCK_FILE = 'morf.lock.json';

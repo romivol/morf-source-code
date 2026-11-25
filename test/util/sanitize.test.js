@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { join } from 'node:path';
-import { sanitizeName, assertPathInside } from '../src/sanitize.js';
+import { sanitizeName, assertPathInside } from '../../src/util/sanitize.js';
 
 test('sanitizeName lowercases and dashes unsafe characters', () => {
   assert.equal(sanitizeName('PDF Skill'), 'pdf-skill');

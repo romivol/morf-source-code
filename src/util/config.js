@@ -5,7 +5,7 @@
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
 import { homedir } from 'node:os';
-import { ensureDir } from './fsops.js';
+import { ensureDir } from './fs.js';
 import { err as E } from './messages.js';
 
 const CONFIG_DIR  = join(homedir(), '.morf');

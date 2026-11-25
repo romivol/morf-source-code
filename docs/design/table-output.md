@@ -1,6 +1,6 @@
 # Design note: tabular terminal output
 
-This is the design spec that drove the `src/table.js` implementation. It is kept for
+This is the design spec that drove the `src/util/table.js` implementation. It is kept for
 reference; the behaviour it describes is what ships today.
 
 ---
@@ -117,11 +117,11 @@ Rules:
 
 ## Implementation notes
 
-- Put the column-width computation and row-rendering logic in one shared helper (`src/table.js`)
+- Put the column-width computation and row-rendering logic in one shared helper (`src/util/table.js`)
   used by `install.js`, `update.js`, `uninstall.js`, and `list.js` — don't duplicate padding
   math in four files.
 - Respect `--ascii` exactly as today; only the layout changes, not the color/symbol logic
-  already in `log.js`.
+  already in `util/log.js`.
 - Keep it dependency-free (plain string padding — `String.prototype.padEnd`/`padStart` from
   stdlib is enough; no cli-table3 or similar package).
 - Update existing tests that assert on the old `*** target ***` header format or the old

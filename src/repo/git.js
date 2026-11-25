@@ -3,10 +3,10 @@ import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { promisify } from 'node:util';
-import { removePath } from './fsops.js';
-import { expandRepoShorthand } from './source.js';
-import { err as E } from './messages.js';
-import { createSpinner } from './log.js';
+import { removePath } from '../util/fs.js';
+import { expandRepoShorthand } from './url.js';
+import { err as E } from '../util/messages.js';
+import { createSpinner } from '../util/log.js';
 
 const execFileP = promisify(execFile);
 

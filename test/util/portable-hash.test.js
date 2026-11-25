@@ -7,7 +7,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
-import { portableHashPath, portableDigest } from '../src/fsops.js';
+import { portableHashPath, portableDigest } from '../../src/util/fs.js';
 
 // The fixture is built from these exact bytes at test time, so a checkout's
 // line-ending settings cannot alter it. It is chosen to expose the things that

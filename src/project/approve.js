@@ -15,9 +15,9 @@
 // environment — this module only ever sees the parsed flags.
 
 import readline from 'node:readline';
-import { listTargets } from './targets.js';
-import { log } from './log.js';
-import { project as P } from './messages.js';
+import { listTargets } from '../install/targets.js';
+import { log } from '../util/log.js';
+import { project as P } from '../util/messages.js';
 
 // Actions that change something on disk.
 const CHANGES = new Set(['install', 'replace', 'overwrite', 'remove']);

@@ -10,24 +10,24 @@
 
 import { join } from 'node:path';
 import { existsSync } from 'node:fs';
-import { assertGitAvailable, openClone } from '../git.js';
-import { scanRepo, TYPES } from '../scan.js';
-import { expandTargets, READS_ROOT_AGENTS_MD } from '../targets.js';
-import { portableHashPath } from '../fsops.js';
-import { hashValue } from '../jsonfile.js';
-import { readManifest, writeManifest, recordsFor } from '../manifest.js';
-import { readConfig, resolveRepo } from '../config.js';
-import { cleanRepoForProject, resolveStoredRepo } from '../source.js';
+import { assertGitAvailable, openClone } from '../repo/git.js';
+import { scanRepo, TYPES } from '../repo/scan.js';
+import { expandTargets, READS_ROOT_AGENTS_MD } from '../install/targets.js';
+import { portableHashPath } from '../util/fs.js';
+import { hashValue } from '../install/json-file.js';
+import { readManifest, writeManifest, recordsFor } from '../install/install-record.js';
+import { readConfig, resolveRepo } from '../util/config.js';
+import { cleanRepoForProject, resolveStoredRepo } from '../repo/url.js';
 import {
   PROJECT_FILE, LOCK_FILE, emptyProject, emptyLock, readProjectFile, writeProjectFile,
   readLockfile, writeLockfile, desiredItems, findLockSource, findLockItem,
   lockItems, unlockItem, addToProject, removeFromProject, sourceKey,
-} from '../project.js';
+} from '../project/project-file-and-lockfile.js';
 import { prepare, commit, removeInstalled, selectItems, safeOrName } from './install.js';
-import { approve, printPlan, execCommands, defaultIo } from '../approve.js';
-import { log } from '../log.js';
-import { createTargetTable } from '../table.js';
-import { project as P, notInstalled } from '../messages.js';
+import { approve, printPlan, execCommands, defaultIo } from '../project/approve.js';
+import { log } from '../util/log.js';
+import { createTargetTable } from '../util/table.js';
+import { project as P, notInstalled } from '../util/messages.js';
 
 // ── shared helpers ────────────────────────────────────────────────────────────
 

@@ -1,14 +1,14 @@
 import { promises as fs } from 'node:fs';
-import { readManifest, recordsFor, getInstalledHash, getSourceHash } from '../manifest.js';
-import { listTargets } from '../targets.js';
-import { scanRepo } from '../scan.js';
-import { locate, currentHash, sourceHashOf, scanDisk } from '../store.js';
-import { withTempClone, assertGitAvailable } from '../git.js';
-import { sanitizeName } from '../sanitize.js';
-import { log, tintWithHex, isAscii } from '../log.js';
-import { renderTable } from '../table.js';
-import { parseAgentFrontmatter } from '../convert.js';
-import * as M from '../messages.js';
+import { readManifest, recordsFor, getInstalledHash, getSourceHash } from '../install/install-record.js';
+import { listTargets } from '../install/targets.js';
+import { scanRepo } from '../repo/scan.js';
+import { locate, currentHash, sourceHashOf, scanDisk } from '../install/store.js';
+import { withTempClone, assertGitAvailable } from '../repo/git.js';
+import { sanitizeName } from '../util/sanitize.js';
+import { log, tintWithHex, isAscii } from '../util/log.js';
+import { renderTable } from '../util/table.js';
+import { parseAgentFrontmatter } from '../convert/agents.js';
+import * as M from '../util/messages.js';
 
 export function shortRepo(repoOrKey) {
   if (!repoOrKey) return '';

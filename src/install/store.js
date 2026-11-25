@@ -21,12 +21,12 @@ import { promises as fs } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, relative, isAbsolute } from 'node:path';
 import { tableFor, resolveDestination } from './targets.js';
-import { assertPathInside } from './sanitize.js';
-import { ensureDir, copyDir, removePath, hashPath } from './fsops.js';
+import { assertPathInside } from '../util/sanitize.js';
+import { ensureDir, copyDir, removePath, hashPath } from '../util/fs.js';
 import {
   readJsonFile, readTextOrNull, atomicWrite, hashValue, hashText, deepEqual,
-} from './jsonfile.js';
-import { parseText, getPath, setPath, removePath as removeJsonPath, arrayAppend, arrayRemove } from './jsonedit.js';
+} from './json-file.js';
+import { parseText, getPath, setPath, removePath as removeJsonPath, arrayAppend, arrayRemove } from './json-edit.js';
 
 function underHome(p) {
   const rel = relative(homedir(), p);

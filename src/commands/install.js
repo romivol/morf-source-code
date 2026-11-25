@@ -1,22 +1,22 @@
 import { join } from 'node:path';
 import { promises as fs } from 'node:fs';
-import { assertGitAvailable, withTempClone } from '../git.js';
-import { scanRepo, TYPES } from '../scan.js';
-import { expandTargets, targetScope } from '../targets.js';
-import { sanitizeName } from '../sanitize.js';
-import { hashPath, removePath } from '../fsops.js';
+import { assertGitAvailable, withTempClone } from '../repo/git.js';
+import { scanRepo, TYPES } from '../repo/scan.js';
+import { expandTargets, targetScope } from '../install/targets.js';
+import { sanitizeName } from '../util/sanitize.js';
+import { hashPath, removePath } from '../util/fs.js';
 import {
   readManifest, writeManifest, getRecord, setRecord, deleteRecord, recordsFor,
   getInstalledHash, getSourceHash,
-} from '../manifest.js';
-import { readConfig, resolveRepo } from '../config.js';
-import { normalizeRepo } from '../source.js';
-import { adaptAgentForTarget } from '../convert.js';
-import { convertRule, convertPrompt, convertHook, convertMcp } from '../primitives.js';
-import { locate, currentHash, matchesRendered, write, remove, sourceHashOf } from '../store.js';
-import { log } from '../log.js';
-import { createTargetTable } from '../table.js';
-import * as M from '../messages.js';
+} from '../install/install-record.js';
+import { readConfig, resolveRepo } from '../util/config.js';
+import { normalizeRepo } from '../repo/url.js';
+import { adaptAgentForTarget } from '../convert/agents.js';
+import { convertRule, convertPrompt, convertHook, convertMcp } from '../convert/primitives.js';
+import { locate, currentHash, matchesRendered, write, remove, sourceHashOf } from '../install/store.js';
+import { log } from '../util/log.js';
+import { createTargetTable } from '../util/table.js';
+import * as M from '../util/messages.js';
 
 const NOTE_INDENT = '         '; // 9 spaces
 

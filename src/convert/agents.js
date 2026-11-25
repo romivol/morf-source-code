@@ -1,6 +1,6 @@
 // Agent conversion: rewrites an agent file's frontmatter (and, for Codex, the
 // whole file) into the target tool's native format.
-// No external YAML library — frontmatter is handled line by line (frontmatter.js).
+// No external YAML library — frontmatter is handled line by line (convert/frontmatter.js).
 
 import {
   parseFrontmatter, assembleFrontmatter, stripFrontmatter, unquote,

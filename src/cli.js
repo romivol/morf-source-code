@@ -6,17 +6,17 @@ import { updateCommand } from './commands/update.js';
 import { uninstallCommand } from './commands/uninstall.js';
 import { listCommand } from './commands/list.js';
 import { configCommand } from './commands/config.js';
-import { isValidTarget, listTargets, detectTargets, targetScope, DEFAULT_TARGET, ALL_TARGET } from './targets.js';
-import { TYPES } from './scan.js';
-import { readConfig } from './config.js';
-import { log, setAscii } from './log.js';
-import { err as E } from './messages.js';
-import { printBanner } from './banner.js';
-import { findProjectRoot } from './project.js';
+import { isValidTarget, listTargets, detectTargets, targetScope, DEFAULT_TARGET, ALL_TARGET } from './install/targets.js';
+import { TYPES } from './repo/scan.js';
+import { readConfig } from './util/config.js';
+import { log, setAscii } from './util/log.js';
+import { err as E } from './util/messages.js';
+import { printBanner } from './util/banner.js';
+import { findProjectRoot } from './project/project-file-and-lockfile.js';
 import {
   initCommand, syncCommand, projectInstallCommand, projectUninstallCommand,
 } from './commands/project.js';
-import { project as P } from './messages.js';
+import { project as P } from './util/messages.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(readFileSync(join(__dirname, '..', 'package.json'), 'utf8'));

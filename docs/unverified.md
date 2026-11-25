@@ -57,8 +57,8 @@ All tests in this repository check that morf *writes* the right bytes. None of t
 
 | What | Doubt |
 |---|---|
-| Fetch by commit | Tested against local repositories and against GitHub (`test/network.test.js`: direct fetch by SHA, the full-clone fallback, and a refused non-existent commit). Not tested against GitLab, Bitbucket or a self-hosted server, or against a private repository. |
-| Portable hashes | Proven equal for the same commit under `core.autocrlf` true and false on Windows. `test/portable-hash.test.js` compares against a stored constant and is set up to run on Linux, macOS and Windows in CI, **but that workflow has not run yet**: the constant was computed on Windows only. |
+| Fetch by commit | Tested against local repositories and against GitHub (`test/repo/network.test.js`: direct fetch by SHA, the full-clone fallback, and a refused non-existent commit). Not tested against GitLab, Bitbucket or a self-hosted server, or against a private repository. |
+| Portable hashes | Proven equal for the same commit under `core.autocrlf` true and false on Windows. `test/util/portable-hash.test.js` compares against a stored constant and is set up to run on Linux, macOS and Windows in CI, **but that workflow has not run yet**: the constant was computed on Windows only. |
 | CI workflow | `.github/workflows/ci.yml` (3 systems x Node 18 and LTS) was written but never executed. The suite has only ever run on Windows with Node 24. |
 | Committed tool files on another OS | A project that commits its installed files may check them out with different line endings on Windows (the user's own `core.autocrlf`), in which case morf sees them as edited. |
 | An object that was empty (`{}`) | After morf adds and removes an entry it is left as `{` `}` on two lines; morf cannot know the original spacing. |

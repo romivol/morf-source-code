@@ -5,7 +5,7 @@ import {
   commentInvalidOpencodeFields,
   parseAgentFrontmatter,
   adaptAgentForTarget,
-} from '../src/convert.js';
+} from '../../src/convert/agents.js';
 
 const claudeAgent = `---
 name: demo

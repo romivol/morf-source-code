@@ -19,7 +19,7 @@ jobs:
         # The oldest supported version and the current LTS.
         node-version: [18.x, lts/*]
     env:
-      # Enables test/network.test.js (fetch a pinned commit from a real remote).
+      # Enables test/repo/network.test.js (fetch a pinned commit from a real remote).
       # A plain `npm test` on a developer machine leaves these skipped.
       MORF_NETWORK_TESTS: '1'
     steps:
@@ -31,6 +31,6 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run lint
-      # Includes test/portable-hash.test.js: all three systems must compute the
+      # Includes test/util/portable-hash.test.js: all three systems must compute the
       # same lockfile hash as the constant stored in the repository.
       - run: npm test

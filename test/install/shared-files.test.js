@@ -6,8 +6,8 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, readFileSync, writeFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { write, remove, currentHash, locate } from '../src/store.js';
-import { setPath, removePath, arrayAppend, arrayRemove, getPath } from '../src/jsonedit.js';
+import { write, remove, currentHash, locate } from '../../src/install/store.js';
+import { setPath, removePath, arrayAppend, arrayRemove, getPath } from '../../src/install/json-edit.js';
 
 const tmp = () => mkdtempSync(join(tmpdir(), 'morf-shared-'));
 const text = p => readFileSync(p, 'utf8');

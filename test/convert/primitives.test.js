@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { convertRule, convertPrompt, convertHook, convertMcp, normalizeMcp } from '../src/primitives.js';
+import { convertRule, convertPrompt, convertHook, convertMcp, normalizeMcp } from '../../src/convert/primitives.js';
 
 const rule = `---
 description: TypeScript conventions

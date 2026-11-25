@@ -46,6 +46,38 @@ async function hashDir(dir) {
   return h.digest('hex');
 }
 
+// ── portable hashing (project mode / lockfile) ────────────────────────────────
+//
+// hashPath above is what the install record has always used; it depends on the
+// OS path separator and locale sort, which is fine for one machine. A lockfile
+// is shared between machines, so its hashes use this instead: forward-slash
+// relative paths, byte-order sort, raw file bytes. Callers must hand it a raw
+// checkout (see git.js openClone) so the bytes are the ones git stores.
+
+// entries: [{ rel, buf }]. Pure, so tests can feed it either path separator.
+export function portableDigest(entries) {
+  const norm = entries
+    .map(e => ({ rel: Buffer.from(String(e.rel).replace(/\\/g, '/'), 'utf8'), buf: e.buf }))
+    .sort((a, b) => Buffer.compare(a.rel, b.rel));
+  const h = createHash('sha256');
+  for (const { rel, buf } of norm) {
+    h.update(rel).update('\0').update(buf).update('\0');
+  }
+  return 'sha256:' + h.digest('hex');
+}
+
+// Portable hash of a file (its bytes) or a directory (every file under it).
+export async function portableHashPath(p) {
+  const stat = await fs.stat(p);
+  if (stat.isFile()) {
+    return portableDigest([{ rel: '', buf: await fs.readFile(p) }]);
+  }
+  const files = await collectFiles(p);
+  const entries = [];
+  for (const { rel, abs } of files) entries.push({ rel, buf: await fs.readFile(abs) });
+  return portableDigest(entries);
+}
+
 // Recursively collect all files under dir as { rel, abs }.
 async function collectFiles(dir) {
   const results = [];

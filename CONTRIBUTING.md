@@ -23,29 +23,21 @@ node bin/cli.js --help   # run the CLI from source
 
 ```
 bin/            CLI entry point (thin wrapper around src/cli.js)
-src/            Library code
+src/
   cli.js          argument parsing + command dispatch
-  commands/       one file per subcommand (install/update/uninstall/list/config)
-  install/targets.js      per-tool storage table (where and how each primitive is stored)
-  repo/scan.js         discover skills/agents/rules/prompts/hooks/MCP servers in a repo
-  convert/agents.js      agent conversion per target
-  convert/primitives.js   rule, prompt, hook and MCP-server conversion per target
-  convert/frontmatter.js  line-based frontmatter helpers (no YAML library)
-  install/store.js        read/write/remove an installed item: files and merged config
-  install/json-file.js     tolerant JSON(C) reading, atomic writes, canonical hashing
-  install/json-edit.js     in-place edits to shared JSON(C) files (every other byte preserved)
-  project/project-file-and-lockfile.js      the project file (morf.json) and the lockfile (morf.lock.json)
-  project/approve.js      the plan and the approval gate (--yes, --allow-exec)
-  repo/git.js          clone + error classification
-  install/install-record.js     the install record (~/.morf/installed.json): read/write + migrations
-  util/config.js       ~/.morf/config.json read/write
-  util/fs.js        filesystem + hashing helpers
-  util/sanitize.js     untrusted-name sanitization + path-traversal guards
-  repo/url.js       repo-URL normalization
-  util/table.js        aligned terminal table rendering
-  util/messages.js     all user-facing strings
-  util/log.js          colored/ASCII terminal output + spinner
-test/           node --test suites (mirror src/ by unit)
+  commands/       one file per command: install, update, uninstall, list, config
+                  (global mode); init, sync, project-install, project-uninstall
+  convert/        text conversion, one module per primitive: agents, rules,
+                  prompts, hooks, mcp; plus frontmatter helpers (no YAML library)
+  install/        targets (per-tool storage tables), engine (prepare/commit one
+                  item), store (files and merged config), json-edit (in-place edits
+                  to shared JSON(C) files), json-file, install-record
+  project/        project-file-and-lockfile (morf.json, morf.lock.json), plan,
+                  approve (the approval gate: --yes, --allow-exec)
+  repo/           git (clone, exact-commit fetch), url (repo URLs), scan
+  util/           fs, sanitize, log, table, messages (all user-facing strings),
+                  banner, config (~/.morf/config.json)
+test/           node --test suites, mirroring src/
 docs/design/    design notes and specs
 ```
 
@@ -73,7 +65,7 @@ npm test
 
 Prefer unit tests over the pure modules (`convert`, `sanitize`, `source`,
 `messages`), which are deterministic and side-effect free. When adding a
-feature, add a matching `test/<unit>.test.js`.
+feature, add a matching `test/<folder>/<unit>.test.js`.
 
 ## Submitting changes
 

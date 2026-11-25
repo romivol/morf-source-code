@@ -13,9 +13,10 @@ import { log, setAscii } from './util/log.js';
 import { err as E } from './util/messages.js';
 import { printBanner } from './util/banner.js';
 import { findProjectRoot } from './project/project-file-and-lockfile.js';
-import {
-  initCommand, syncCommand, projectInstallCommand, projectUninstallCommand,
-} from './commands/project.js';
+import { initCommand } from './commands/init.js';
+import { syncCommand } from './commands/sync.js';
+import { projectInstallCommand } from './commands/project-install.js';
+import { projectUninstallCommand } from './commands/project-uninstall.js';
 import { project as P } from './util/messages.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));

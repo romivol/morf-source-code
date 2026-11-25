@@ -5,12 +5,9 @@
 import {
   parseFrontmatter, assembleFrontmatter, stripFrontmatter, unquote,
   getScalar, getList, getMap, hasField, setField, removeField,
-  commentField, commentFieldsExcept,
+  commentField,
 } from './frontmatter.js';
-
-// Targets that use the OpenCode agent format (boolean-map tools, same field rules).
-// kilo v7 is built on the OpenCode server, so it shares the same wire format.
-const OC_LIKE = new Set(['opencode', 'kilo']);
+import { OC_LIKE, commentOthers, isClaudeOnlyModel } from './shared.js';
 
 // ── Tool name mapping ─────────────────────────────────────────────────────────
 
@@ -250,11 +247,6 @@ const AGENT_FIELDS = {
 // Legacy Windsurf (Cascade) has no agent format: the agent becomes a rule.
 const WINDSURF_RULE_FIELDS = new Set(['description', 'globs', 'trigger']);
 
-// Model aliases that only mean something to Claude Code.
-function isClaudeOnlyModel(value) {
-  return /^(sonnet|opus|haiku|fable|inherit)(\[.*\])?$/i.test(value) || /^claude-/i.test(value);
-}
-
 function inlineList(items) {
   return `[${items.join(', ')}]`;
 }
@@ -324,12 +316,6 @@ function checkModel(text, target, notes) {
   if (!isClaudeOnlyModel(model)) return text;
   const res = commentField(text, 'model', `"${model}" is a Claude Code model alias`);
   if (res.changed) notes.push('commented model');
-  return res.text;
-}
-
-function commentOthers(text, allow, target, notes) {
-  const res = commentFieldsExcept(text, allow, `not supported in ${target}`);
-  if (res.changed) notes.push(`commented ${res.fields.join(', ')}`);
   return res.text;
 }
 

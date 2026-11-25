@@ -11,7 +11,7 @@ morf (`@romivol/morf`) is a zero-dependency Node.js CLI that installs AI-tool pr
 ```sh
 npm install                                # dev deps only (eslint); there are no runtime deps
 npm test                                   # node --test (built-in runner, no framework)
-node --test test/convert/agents.test.js           # one test file
+node --test test/convert/agents.test.js    # one test file
 node --test --test-name-pattern="codex"    # tests whose name matches a pattern
 npm run lint                               # eslint . (flat config, ESLint 9)
 node bin/cli.js --help                     # run the CLI from source
@@ -37,7 +37,7 @@ A local directory works as the repo argument as long as it is a git repository w
 
 ### The pipeline
 
-`installCommand` → `withTempClone` (`repo/git.js`) → `scanRepo` (`repo/scan.js`) → for each target × item, `installOne` (`commands/install.js`, also used by `update`):
+`installCommand` → `withTempClone` (`repo/git.js`) → `scanRepo` (`repo/scan.js`) → for each target × item, `installOne` (`install/engine.js`, also used by `update`):
 
 1. `locate(target, type, name)` in `install/store.js` resolves the mapping from `install/targets.js` into a `loc`.
 2. `currentHash(loc, record)` hashes what is on disk; a mismatch with the manifest's `installedHash` (or an existing item with no record) is a local change and is skipped unless `--force`.
@@ -62,17 +62,17 @@ One table maps every (target, type) to a storage mapping. Four kinds:
 
 `TARGETS` is a snapshot built at import time from `process.cwd()` and from which config files exist (`pickExisting`). Pass `cwd` to `resolveDestination`/`getTargets`/`detectTargets` for another directory. Windsurf resolves to `.devin/` unless the project has only a legacy `.windsurf/` (then agents are rules, `asRule: true`); hooks and MCP always use `.devin/`, and their presence must not flip the legacy check.
 
-Adding a target or changing a path touches: the `install/targets.js` table, the converters (`convert/agents.js` for agents, `convert/primitives.js` for the rest), the README tables, and `test/install/targets.test.js` (asserts 7 targets).
+Adding a target or changing a path touches: the `install/targets.js` table, the converters (`convert/agents.js`, `rules.js`, `prompts.js`, `hooks.js`, `mcp.js`), the README tables, and `test/install/targets.test.js` (asserts 7 targets).
 
 ### Conversion
 
 - `convert/frontmatter.js`: line-based helpers (`getScalar`, `getList`, `getMap`, `setField`, `removeField`, `commentField`, `commentFieldsExcept`). There is no YAML library and adding one would break the no-dependency rule.
 - `convert/agents.js` `adaptAgentForTarget(text, target, { name, asRule })`: Claude ↔ OpenCode/Kilo tools map, Cursor subagent (`readonly`), Copilot tool aliases, Devin `allowed-tools`, Codex TOML.
-- `convert/primitives.js`: `convertRule`, `convertPrompt` return `{ text, notes }`; `convertHook` and `convertMcp` return `{ value, notes }` for JSON merges or `{ text, notes }` for files/blocks; `convertHook` may return `{ unsupported }`. For OpenCode/Kilo a hook becomes generated plugin source with exactly one named export (the plugin loader calls every export).
+- `convert/rules.js`, `prompts.js`, `hooks.js`, `mcp.js`: `convertRule`, `convertPrompt` return `{ text, notes }`; `convertHook` and `convertMcp` return `{ value, notes }` for JSON merges or `{ text, notes }` for files/blocks; `convertHook` may return `{ unsupported }`. For OpenCode/Kilo a hook becomes generated plugin source with exactly one named export (the plugin loader calls every export).
 
 Unsupported fields are commented out in place with a `(commented by morf: <reason>)` suffix, never deleted. `notes` become the `adapted for <target>: ...` text on the row. `adaptAgentForTarget` falls back to the unchanged input on any parse failure. `morf config convert off` only disables agent frontmatter conversion; the other primitives must convert to be valid.
 
-Bump `CONVERTER_VERSION` in `commands/install.js` whenever converter output changes: records with an older `conv` are re-rendered on the next install/update even when the source hash is unchanged.
+Bump `CONVERTER_VERSION` in `install/engine.js` whenever converter output changes: records with an older `conv` are re-rendered on the next install/update even when the source hash is unchanged.
 
 ### Shared config files (`install/store.js`, `install/json-file.js`)
 
@@ -86,11 +86,11 @@ morf only adds and removes its own entries. Rules that must hold:
 - A TOML table that already exists outside morf's markers is never duplicated: the write fails with a message.
 - All writes are temp-file-then-rename.
 
-### Project mode (`project/project-file-and-lockfile.js`, `project/approve.js`, `commands/project.js`)
+### Project mode (`project/`, and `commands/init.js`, `sync.js`, `project-install.js`, `project-uninstall.js`)
 
 Three names, used in every user-visible string: the **project file** (`morf.json`), the **lockfile** (`morf.lock.json`), the **install record** (`~/.morf/installed.json`). Never write "manifest" in anything a user sees; the module is still `install/install-record.js` internally.
 
-`cli.js` calls `findProjectRoot(cwd)`; with a root (and no `--global`) `install`, `update`, `uninstall` and `sync` go to `commands/project.js`. Those functions take `(args, ctx)` with `ctx = { root, cwd, io, morfVersion }`, return an exit code, and never call `process.exit`, so tests drive them directly with a fake `io` (`test/helpers.js`).
+`cli.js` calls `findProjectRoot(cwd)`; with a root (and no `--global`) `install`, `update`, `uninstall` and `sync` go to the project-mode command modules. Those functions take `(args, ctx)` with `ctx = { root, cwd, io, morfVersion }`, return an exit code, and never call `process.exit`, so tests drive them directly with a fake `io` (`test/helpers.js`).
 
 - **Scope.** `{ project: root }` is passed to `locate`/`prepare`/`commit`; `tableFor(scope)` picks `getProjectTargets(root)`, where all seven tools have project-level paths. `null` scope is the global behaviour and must stay exactly as it was.
 - **Plan then apply.** `prepare(item, options)` classifies without writing (`unsupported`, `modified`, `current`, `adopt`, `install`, `replace`); `commit(prep, options)` writes and updates the record. `installOne` (global) is `prepare` + `commit`. Project commands build actions from `prepare`, print them with `printPlan`, pass them through `approve`, then `commit`.
@@ -121,5 +121,5 @@ All terminal output goes through `util/log.js`; `util/table.js` renders the `TAR
 - User-facing strings belong in `src/util/messages.js`.
 - Expected errors produce a one-line message and a non-zero exit code, never a stack trace. Command modules call `process.exit(1)` after printing a summary when anything failed.
 - Two-space indent, single quotes, semicolons, LF line endings (`.editorconfig`). The checkout may have CRLF working files under `core.autocrlf`; that is not a content change.
-- Tests live in `test/<unit>.test.js`. Converters are tested as pure functions; `test/install/store.test.js` builds `loc` objects by hand against a temp directory so nothing touches the real home directory.
+- Tests live in `test/<folder>/<unit>.test.js`, mirroring `src/`; `test/helpers.js` holds the sandbox, fixture repos and `projectKit`. Converters are tested as pure functions; `test/install/store.test.js` builds `loc` objects by hand against a temp directory so nothing touches the real home directory.
 - Tool formats change often. Before changing a path or field for a tool, check that tool's current documentation rather than relying on memory.

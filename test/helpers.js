@@ -9,6 +9,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, statS
 import { tmpdir } from 'node:os';
 import { join, dirname, relative } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { createHash } from 'node:crypto';
 
 const made = [];
@@ -31,8 +32,11 @@ export async function sandbox() {
   process.env.HOME = home;
   process.env.USERPROFILE = home;
   delete process.env.CI;
-  const [projectCmds, project, source, manifest, fsops, git, approve] = await Promise.all([
-    import('../src/commands/project.js'),
+  const mods = await Promise.all([
+    import('../src/commands/init.js'),
+    import('../src/commands/sync.js'),
+    import('../src/commands/project-install.js'),
+    import('../src/commands/project-uninstall.js'),
     import('../src/project/project-file-and-lockfile.js'),
     import('../src/repo/url.js'),
     import('../src/install/install-record.js'),
@@ -40,7 +44,47 @@ export async function sandbox() {
     import('../src/repo/git.js'),
     import('../src/project/approve.js'),
   ]);
-  return { home, ...projectCmds, ...project, ...source, ...manifest, ...fsops, ...git, ...approve };
+  return Object.assign({ home }, ...mods);
+}
+
+// The fixtures every project-mode test file starts from. `m` is the result of
+// sandbox().
+export function projectKit(m) {
+  const CLI = fileURLToPath(new URL('../bin/cli.js', import.meta.url));
+  const NAMES = () => ({ skill: [], agent: [], rule: [], prompt: [], hook: [], mcp: [] });
+  const names = (over) => ({ ...NAMES(), ...over });
+  const ctx = (root, io, morfVersion = '9.9.9') => ({ root, cwd: root, io: io || fakeIo(), morfVersion });
+
+  // The repo as it is stored in the project files (relative to the project).
+  const stored = (root, repo) => m.cleanRepoForProject(repo.dir, root, root).stored;
+
+  // A fresh project directory with an empty project file.
+  async function newProject() {
+    const root = tmp('morf-proj-');
+    await m.writeProjectFile(root, m.emptyProject());
+    return root;
+  }
+
+  // Non-interactive install with both approval flags.
+  function install(root, repo, over = {}) {
+    return run(() => m.projectInstallCommand({
+      repoArg: repo.dir, names: NAMES(), all: false, targets: ['claude'], force: false, ref: null,
+      yes: true, allowExec: true, ...over,
+    }, ctx(root)));
+  }
+
+  function sync(root, flags = {}, io = null, version) {
+    return run(() => m.syncCommand({ yes: true, allowExec: true, ...flags }, ctx(root, io, version)));
+  }
+
+  // A project whose morf.json was written by hand (no lockfile, nothing installed).
+  async function handWritten(repo, items, targets = ['claude']) {
+    const root = tmp('morf-proj-');
+    await m.writeProjectFile(root, { sources: [{ repo: stored(root, repo), ref: 'main', targets, items }] });
+    return root;
+  }
+
+  return { CLI, NAMES, names, ctx, stored, newProject, install, sync, handWritten };
 }
 
 export function write(root, rel, text) {

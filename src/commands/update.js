@@ -6,7 +6,8 @@ import { readManifest, writeManifest, recordsFor } from '../install/install-reco
 import { readConfig } from '../util/config.js';
 import { log } from '../util/log.js';
 import { createTargetTable } from '../util/table.js';
-import { installOne, countResult, printSummary } from './install.js';
+import { installOne } from '../install/engine.js';
+import { countResult, printSummary } from './install.js';
 import * as M from '../util/messages.js';
 
 export async function updateCommand(args) {

@@ -38,10 +38,10 @@
   "homepage": "https://morf.tools",
   "repository": {
     "type": "git",
-    "url": "https://github.com/romivol/morf.git"
+    "url": "https://github.com/romivol/morf-source-code.git"
   },
   "bugs": {
-    "url": "https://github.com/romivol/morf/issues"
+    "url": "https://github.com/romivol/morf-source-code/issues"
   },
   "license": "MIT",
   "publishConfig": {

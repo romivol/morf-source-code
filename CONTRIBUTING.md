@@ -11,8 +11,8 @@ getting set up and the conventions the project follows.
 ## Getting started
 
 ```bash
-git clone https://github.com/romivol/morf.git
-cd morf
+git clone https://github.com/romivol/morf-source-code.git
+cd morf-source-code
 npm install
 npm test        # run the test suite (node --test)
 npm run lint    # run ESLint
@@ -26,14 +26,21 @@ bin/            CLI entry point (thin wrapper around src/cli.js)
 src/            Library code
   cli.js          argument parsing + command dispatch
   commands/       one file per subcommand (install/update/uninstall/list/config)
-  convert.js      agent frontmatter/tool-format conversion per target
-  targets.js      per-tool install-location table (claude, cursor, ...)
+  targets.js      per-tool storage table (where and how each primitive is stored)
+  scan.js         discover skills/agents/rules/prompts/hooks/MCP servers in a repo
+  convert.js      agent conversion per target
+  primitives.js   rule, prompt, hook and MCP-server conversion per target
+  frontmatter.js  line-based frontmatter helpers (no YAML library)
+  store.js        read/write/remove an installed item: files and merged config
+  jsonfile.js     tolerant JSON(C) reading, atomic writes, canonical hashing
+  jsonedit.js     in-place edits to shared JSON(C) files (every other byte preserved)
+  project.js      the project file (morf.json) and the lockfile (morf.lock.json)
+  approve.js      the plan and the approval gate (--yes, --allow-exec)
   git.js          clone + error classification
-  manifest.js     ~/.morf/installed.json read/write + migrations
+  manifest.js     the install record (~/.morf/installed.json): read/write + migrations
   config.js       ~/.morf/config.json read/write
   fsops.js        filesystem + hashing helpers
   sanitize.js     untrusted-name sanitization + path-traversal guards
-  scan.js         discover skills/agents in a repo or on disk
   source.js       repo-URL normalization
   table.js        aligned terminal table rendering
   messages.js     all user-facing strings

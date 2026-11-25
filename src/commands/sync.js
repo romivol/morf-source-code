@@ -20,7 +20,7 @@ import {
   applyActions, applyPrunes, doubleRuleWarnings, closeAll,
 } from '../project/plan.js';
 import { approve, printPlan, defaultIo } from '../project/approve.js';
-import { log } from '../util/log.js';
+import { log, printable } from '../util/log.js';
 import { project as P } from '../util/messages.js';
 
 //
@@ -37,10 +37,13 @@ export async function syncCommand(flags, ctx) {
   const frozen = !update && (Boolean(flags.frozen) || Boolean(io.env.CI));
   const check = Boolean(flags.check);
 
-  const pf = await readProjectFile(root);
-  if (!pf) { log.err(P.noProject); return 1; }
+  // Both files are read and validated before anything else happens: no git
+  // process starts for a project whose files are not acceptable.
+  let pf;
   let lock;
   try {
+    pf = await readProjectFile(root);
+    if (!pf) { log.err(P.noProject); return 1; }
     lock = await readLockfile(root);
   } catch (e) {
     log.err(e.message);
@@ -93,7 +96,7 @@ export async function syncCommand(flags, ctx) {
         clone = await openClone(resolveStoredRepo(src.repo, root),
           pinned ? { commit: locked.commit, label: src.repo } : { ref: src.ref, label: src.repo });
       } catch (e) {
-        log.err(e.message);
+        log.err(printable(e.message));
         return 1;
       }
       clones.set(key, clone);
@@ -105,10 +108,10 @@ export async function syncCommand(flags, ctx) {
         const lockItem = findLockItem(locked, d.type, d.name);
         if (!item) {
           log.err(pinned ? P.notInPinned(d.type, d.name, src.repo, clone.commit)
-                         : `${d.type} '${d.name}' was not found in ${src.repo} (${src.ref}).`);
+                         : `${d.type} '${printable(d.name)}' was not found in ${printable(src.repo)} (${printable(src.ref)}).`);
           return 1;
         }
-        if (item.invalid) { log.err(`${d.type} '${d.name}' in ${src.repo}: ${item.invalid}`); return 1; }
+        if (item.invalid) { log.err(`${d.type} '${printable(d.name)}' in ${printable(src.repo)}: ${printable(item.invalid)}`); return 1; }
         const hash = await lockHashOf(item);
         if (pinned && lockItem && lockItem.hash !== hash) {
           log.err(P.hashMismatch(d.type, d.name, src.repo));
@@ -180,7 +183,7 @@ export async function syncCommand(flags, ctx) {
 
     if (edited.length > 0) {
       log.warn(P.skippedEdited(edited.length));
-      for (const a of edited) log.info(`    ${a.target}  ${a.type}  ${a.name}`);
+      for (const a of edited) log.info(`    ${a.target}  ${a.type}  ${printable(a.name)}`);
     }
     if (prunes.length > 0 && !decision.prune) log.info(P.pruneKept(prunes.length));
     return failed + pruneFailed > 0 ? 1 : 0;
@@ -193,15 +196,15 @@ export async function syncCommand(flags, ctx) {
 function reportDrift({ hadLock, newItems, extra, actions }) {
   const decl = [];
   if (!hadLock && newItems.length > 0) decl.push('there is no lockfile');
-  for (const d of newItems) decl.push(`${d.type} '${d.name}' (${d.repo}) is in the project file but not in the lockfile`);
-  for (const x of extra) decl.push(`${x.type} '${x.name}' (${x.repo}) is in the lockfile but not in the project file`);
+  for (const d of newItems) decl.push(`${d.type} '${printable(d.name)}' (${printable(d.repo)}) is in the project file but not in the lockfile`);
+  for (const x of extra) decl.push(`${x.type} '${printable(x.name)}' (${printable(x.repo)}) is in the lockfile but not in the project file`);
 
   const disk = [];
   for (const a of actions) {
-    if (a.op === 'install') disk.push(`${a.target}: ${a.type} '${a.name}' is not installed`);
-    else if (a.op === 'replace' || a.op === 'overwrite') disk.push(`${a.target}: ${a.type} '${a.name}' differs from the lockfile`);
-    else if (a.op === 'skip') disk.push(`${a.target}: ${a.type} '${a.name}' was edited locally`);
-    else if (a.op === 'prune') disk.push(`${a.target}: ${a.type} '${a.name}' is installed but not in the lockfile`);
+    if (a.op === 'install') disk.push(`${a.target}: ${a.type} '${printable(a.name)}' is not installed`);
+    else if (a.op === 'replace' || a.op === 'overwrite') disk.push(`${a.target}: ${a.type} '${printable(a.name)}' differs from the lockfile`);
+    else if (a.op === 'skip') disk.push(`${a.target}: ${a.type} '${printable(a.name)}' was edited locally`);
+    else if (a.op === 'prune') disk.push(`${a.target}: ${a.type} '${printable(a.name)}' is installed but not in the lockfile`);
   }
 
   if (decl.length === 0 && disk.length === 0) {
@@ -217,7 +220,7 @@ function reportDrift({ hadLock, newItems, extra, actions }) {
     for (const l of disk) log.info(`  ${l}`);
   }
   for (const a of actions.filter(x => x.op === 'unsupported')) {
-    log.dim(`  note: ${a.target}: ${a.type} '${a.name}' is ${a.reason}`);
+    log.dim(`  note: ${a.target}: ${a.type} '${a.name}' is ${printable(a.reason)}`);
   }
   return 1;
 }

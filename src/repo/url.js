@@ -3,6 +3,7 @@
 
 import { existsSync } from 'node:fs';
 import { resolve, relative, isAbsolute } from 'node:path';
+import { assertSafeRepo, redact } from './validate.js';
 
 // Canonical repo-key computation for "is this the same repo?" comparisons.
 // Conservative: only normalizes format differences, never merges different hosts.
@@ -74,6 +75,7 @@ function isScpStyle(s) {
 // Throws when the URL cannot be cleaned safely or a local path cannot be made
 // relative to the project root.
 export function cleanRepoForProject(repo, root, cwd = process.cwd()) {
+  assertSafeRepo(repo, { commandLine: true });
   const expanded = expandRepoShorthand(repo, cwd).trim();
 
   if (HAS_SCHEME.test(expanded)) {
@@ -118,9 +120,4 @@ export function cleanRepoForProject(repo, root, cwd = process.cwd()) {
 // Turn a stored repo back into something git can clone on this machine.
 export function resolveStoredRepo(stored, root) {
   return stored.startsWith('.') ? resolve(root, stored) : stored;
-}
-
-// Hide credentials when a URL has to appear in an error message.
-function redact(s) {
-  return s.replace(/\/\/[^/@]*@/, '//***@').replace(/[?#].*$/, '?***');
 }

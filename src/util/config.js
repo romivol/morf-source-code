@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import { homedir } from 'node:os';
 import { ensureDir } from './fs.js';
 import { err as E } from './messages.js';
+import { assertSafeRepo } from '../repo/validate.js';
 
 const CONFIG_DIR  = join(homedir(), '.morf');
 const CONFIG_PATH = join(CONFIG_DIR, 'config.json');
@@ -55,15 +56,22 @@ export async function writeConfig(config) {
   await fs.rename(tmp, CONFIG_PATH);
 }
 
+// The repo a command should use: the argument, an @alias, or the configured
+// default. Whichever it is, it is validated here, before any caller can hand
+// it to git.
 export function resolveRepo(repoArg, config) {
+  let repo;
   if (repoArg && repoArg.startsWith('@')) {
-    const resolved = (config.aliases || {})[repoArg];
-    if (!resolved) throw new Error(E.unknownAlias(repoArg, Object.keys(config.aliases || {})));
-    return resolved;
+    repo = (config.aliases || {})[repoArg];
+    if (!repo) throw new Error(E.unknownAlias(repoArg, Object.keys(config.aliases || {})));
+  } else if (repoArg) {
+    repo = repoArg;
+  } else if (config.defaultRepo) {
+    repo = config.defaultRepo;
+  } else {
+    throw new Error(E.noRepo);
   }
-  if (repoArg) return repoArg;
-  if (config.defaultRepo) return config.defaultRepo;
-  throw new Error(E.noRepo);
+  return assertSafeRepo(repo, { commandLine: true });
 }
 
 export async function setDefaultRepo(repo) {

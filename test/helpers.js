@@ -43,6 +43,8 @@ export async function sandbox() {
     import('../src/util/fs.js'),
     import('../src/repo/git.js'),
     import('../src/project/approve.js'),
+    import('../src/repo/validate.js'),
+    import('../src/util/log.js'),
   ]);
   return Object.assign({ home }, ...mods);
 }

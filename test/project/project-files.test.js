@@ -98,7 +98,11 @@ test('credentials are stripped from repo URLs, or the URL is refused', () => {
   assert.equal(clean('ssh://git:pw@github.com/acme/agents.git'), 'ssh://git@github.com/acme/agents.git');
   assert.equal(clean('git@github.com:acme/agents.git'), 'git@github.com:acme/agents.git');
   assert.throws(() => clean('https://github.com/acme/agents.git?token=abc'), /cannot store it safely/);
-  assert.throws(() => clean('user:pw@github.com:acme/agents.git'), /password/);
+  assert.throws(() => clean('user:pw@github.com:acme/agents.git'), /not valid/);
+  // Neither refusal repeats the credential.
+  for (const bad of ['user:hunter2@github.com:acme/agents.git', 'https://user:hunter2@-bad-host/x', 'https://user:hunter2@github.com/a/b?t=hunter2']) {
+    try { clean(bad); assert.fail('accepted ' + bad); } catch (e) { assert.ok(!e.message.includes('hunter2'), e.message); }
+  }
   // The error itself must not leak the credential.
   try { clean('https://user:supersecret@github.com/a/b?x=1'); } catch (e) { assert.ok(!e.message.includes('supersecret')); }
 });

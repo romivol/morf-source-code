@@ -1,3 +1,15 @@
+// The only module that starts a child process, and the only program it starts
+// is git.
+//
+// Rules every call here follows:
+//   - Values that came from outside (repo, ref, commit) are validated before
+//     any process is started (repo/validate.js).
+//   - On the command line they sit after an end-of-options marker, or are
+//     attached to their option (--branch=<ref>), so git can never read one as
+//     an option.
+//   - GIT_ALLOW_PROTOCOL limits git to https, ssh and local files, so remote
+//     helpers such as ext:: are refused by git itself.
+
 import { execFile } from 'node:child_process';
 import { promises as fs } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -5,20 +17,22 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { removePath } from '../util/fs.js';
 import { expandRepoShorthand } from './url.js';
+import { assertSafeRepo, assertSafeRef, assertSafeCommit } from './validate.js';
 import { err as E } from '../util/messages.js';
-import { createSpinner } from '../util/log.js';
+import { createSpinner, printable } from '../util/log.js';
 
 const execFileP = promisify(execFile);
 
 const CLONE_TIMEOUT_MS = 120_000;
 
-export async function assertGitAvailable() {
-  try {
-    await execFileP('git', ['--version'], { timeout: 10_000 });
-  } catch {
-    throw new Error(E.gitMissing);
-  }
-}
+// The transports git may use: https and ssh remotes, and local repositories.
+const ALLOWED_PROTOCOLS = 'https:ssh:file';
+
+// Every git process morf starts, most recent last: [{ args, allowProtocol }].
+// Tests read it to prove that a refused input never reached git. It records
+// the transport restriction only, never the environment: the environment holds
+// the user's secrets, and a failing assertion would print them.
+export const gitCalls = [];
 
 function isSshRemote(repo) {
   if (typeof repo !== 'string') return false;
@@ -26,22 +40,47 @@ function isSshRemote(repo) {
   return /^[^@/\s]+@[^:\s/]+:/.test(repo);
 }
 
-function gitEnv(repo) {
-  const env = { ...process.env, GIT_TERMINAL_PROMPT: '0' };
-  if (isSshRemote(repo)) env.GIT_SSH_COMMAND = 'ssh -oBatchMode=yes';
+function gitEnv(repo = null) {
+  const env = { ...process.env, GIT_TERMINAL_PROMPT: '0', GIT_ALLOW_PROTOCOL: ALLOWED_PROTOCOLS };
+  if (repo && isSshRemote(repo)) env.GIT_SSH_COMMAND = 'ssh -oBatchMode=yes';
   return env;
 }
 
-export async function cloneTemp(repo, ref = null) {
+// The single place a process is spawned.
+async function runGit(args, { env = gitEnv(), timeout = CLONE_TIMEOUT_MS } = {}) {
+  gitCalls.push({ args, allowProtocol: env.GIT_ALLOW_PROTOCOL });
+  const { stdout } = await execFileP('git', args, { timeout, env });
+  return stdout.trim();
+}
+
+export async function assertGitAvailable() {
+  try {
+    await runGit(['--version'], { timeout: 10_000 });
+  } catch {
+    throw new Error(E.gitMissing);
+  }
+}
+
+// Validate what the caller passed and return the URL git will be given.
+// Throws before anything is spawned.
+function checked(repo, ref, commit) {
   const url = expandRepoShorthand(repo);
+  assertSafeRepo(url, { commandLine: true });
+  if (ref !== null && ref !== undefined) assertSafeRef(ref);
+  if (commit !== null && commit !== undefined) assertSafeCommit(commit);
+  return url;
+}
+
+export async function cloneTemp(repo, ref = null) {
+  const url = checked(repo, ref, null);
   const dir = await fs.mkdtemp(join(tmpdir(), 'morf-'));
   const cloneArgs = ['clone', '--depth', '1'];
-  if (ref) cloneArgs.push('--branch', ref);
-  cloneArgs.push(url, dir);
+  if (ref) cloneArgs.push(`--branch=${ref}`);
+  cloneArgs.push('--', url, dir);
 
-  const spinner = createSpinner(`Cloning ${repo}...`);
+  const spinner = createSpinner(`Cloning ${printable(repo)}...`);
   try {
-    await execFileP('git', cloneArgs, { timeout: CLONE_TIMEOUT_MS, env: gitEnv(url) });
+    await runGit(cloneArgs, { env: gitEnv(url) });
     spinner.stop();
     return dir;
   } catch (err) {
@@ -79,10 +118,9 @@ async function setRawCheckout(dir) {
   await fs.writeFile(join(dir, '.git', 'info', 'attributes'), RAW_ATTRIBUTES, 'utf8');
 }
 
-async function git(dir, args, env) {
-  const { stdout } = await execFileP('git', ['-c', 'core.autocrlf=false', '-C', dir, ...args],
-    { timeout: CLONE_TIMEOUT_MS, env });
-  return stdout.trim();
+// git inside a checkout morf created. `dir` is always morf's own temp directory.
+function git(dir, args, env) {
+  return runGit(['-c', 'core.autocrlf=false', '-C', dir, ...args], { env });
 }
 
 // Open a temporary raw checkout of `repo`.
@@ -93,9 +131,10 @@ async function git(dir, args, env) {
 // was obtained: 'fetch' (asked the host for that commit) or 'clone' (the full
 // clone fallback). `fullClone: true` skips the direct fetch.
 export async function openClone(repo, { ref = null, commit = null, label = null, fullClone = false } = {}) {
-  const url = expandRepoShorthand(repo);
+  const url = checked(repo, ref, commit);
   const env = gitEnv(url);
-  const spinner = createSpinner(`Fetching ${label || repo}${commit ? ` @ ${commit.slice(0, 7)}` : ''}...`);
+  const shown = printable(label || repo);
+  const spinner = createSpinner(`Fetching ${shown}${commit ? ` @ ${commit.slice(0, 7)}` : ''}...`);
   let dir = await fs.mkdtemp(join(tmpdir(), 'morf-'));
   const fail = async (e) => {
     spinner.stop();
@@ -108,25 +147,28 @@ export async function openClone(repo, { ref = null, commit = null, label = null,
       // Ask for the exact commit. Many hosts allow that; if this one refuses,
       // fall back to a full clone and check the commit out from it.
       let fetched = false;
-      if (!fullClone) try {
-        await execFileP('git', ['init', '-q', dir], { timeout: CLONE_TIMEOUT_MS, env });
-        await setRawCheckout(dir);
-        await git(dir, ['fetch', '-q', '--depth', '1', url, commit], env);
-        await git(dir, ['checkout', '-q', 'FETCH_HEAD'], env);
-        fetched = true;
-      } catch { /* fall through to the full clone */ }
+      if (!fullClone) {
+        try {
+          await runGit(['init', '-q', '--', dir], { env });
+          await setRawCheckout(dir);
+          await git(dir, ['fetch', '-q', '--depth', '1', '--', url, commit], env);
+          await git(dir, ['checkout', '-q', 'FETCH_HEAD'], env);
+          fetched = true;
+        } catch { /* fall through to the full clone */ }
+      }
 
       if (!fetched) {
         await removePath(dir).catch(() => {});
         dir = await fs.mkdtemp(join(tmpdir(), 'morf-'));
         try {
-          await execFileP('git', ['clone', '-q', '--no-checkout', url, dir], { timeout: CLONE_TIMEOUT_MS, env });
+          await runGit(['clone', '-q', '--no-checkout', '--', url, dir], { env });
         } catch (e) {
           return await fail(classifyGitError(e, repo, null));
         }
         await setRawCheckout(dir);
         try {
-          await git(dir, ['checkout', '-q', commit], env);
+          // `git checkout` does not honour --end-of-options; `git switch` does.
+          await git(dir, ['switch', '-q', '--detach', '--end-of-options', commit], env);
         } catch {
           return await fail(new Error(E.commitUnavailable(commit, label || repo)));
         }
@@ -139,10 +181,10 @@ export async function openClone(repo, { ref = null, commit = null, label = null,
     }
 
     const args = ['clone', '-q', '--depth', '1', '--no-checkout'];
-    if (ref) args.push('--branch', ref);
-    args.push(url, dir);
+    if (ref) args.push(`--branch=${ref}`);
+    args.push('--', url, dir);
     try {
-      await execFileP('git', args, { timeout: CLONE_TIMEOUT_MS, env });
+      await runGit(args, { env });
     } catch (e) {
       return await fail(classifyGitError(e, repo, ref));
     }
@@ -203,9 +245,10 @@ function classifyGitError(cause, repo, ref) {
     return new Error(E.network);
   }
 
+  // git's own text can carry bytes sent by the remote: never print it raw.
   const relevantLine = (cause.stderr || '')
     .split('\n')
     .map(l => l.trim())
     .find(l => l && !l.startsWith('Cloning'));
-  return new Error(relevantLine || cause.message || 'git clone failed for an unknown reason.');
+  return new Error(printable(relevantLine || cause.message || 'git clone failed for an unknown reason.'));
 }

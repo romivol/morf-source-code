@@ -27,9 +27,10 @@ export async function projectUninstallCommand(args, ctx) {
   const { root } = ctx;
   const io = ctx.io || defaultIo();
 
-  const pf = (await readProjectFile(root)) || emptyProject();
+  let pf;
   let lock;
   try {
+    pf = (await readProjectFile(root)) || emptyProject();
     lock = (await readLockfile(root)) || emptyLock();
   } catch (e) {
     log.err(e.message);

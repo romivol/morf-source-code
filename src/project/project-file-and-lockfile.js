@@ -13,6 +13,7 @@ import { dirname, join } from 'node:path';
 import { atomicWrite, readTextOrNull, stableStringify, canonical } from '../install/json-file.js';
 import { TYPES } from '../repo/scan.js';
 import { listTargets } from '../install/targets.js';
+import { assertSafeRepo, assertSafeRef, assertSafeCommit, assertSafeItemName } from '../repo/validate.js';
 import { project as P } from '../util/messages.js';
 
 export const PROJECT_FILE = 'morf.json';
@@ -74,13 +75,19 @@ function validateProject(data) {
   if (!data || typeof data !== 'object' || Array.isArray(data)) return 'expected a JSON object';
   if (data.sources !== undefined && !Array.isArray(data.sources)) return '"sources" must be a list';
   for (const s of data.sources || []) {
-    if (!s || typeof s.repo !== 'string' || !s.repo) return 'every source needs a "repo"';
-    if (typeof s.ref !== 'string' || !s.ref) return `source ${s.repo} needs a "ref" (branch or tag)`;
+    if (!s || typeof s !== 'object') return 'every source must be an object';
+    // repo and ref go to git, names become file names: check them before
+    // anything else looks at them. See repo/validate.js.
+    try {
+      assertSafeRepo(s.repo);
+      assertSafeRef(s.ref);
+    } catch (e) {
+      return e.message;
+    }
     if (!Array.isArray(s.items)) return `source ${s.repo} needs an "items" list`;
     for (const i of s.items) {
-      if (!i || !TYPES.includes(i.type) || typeof i.name !== 'string' || !i.name) {
-        return `source ${s.repo} has an item without a valid "type" and "name"`;
-      }
+      if (!i || !TYPES.includes(i.type)) return `source ${s.repo} has an item without a valid "type"`;
+      try { assertSafeItemName(i.name); } catch (e) { return e.message; }
     }
     if (!Array.isArray(s.targets) || s.targets.length === 0) return `source ${s.repo} needs a "targets" list`;
     const bad = s.targets.find(t => !listTargets().includes(t));
@@ -140,13 +147,20 @@ function validateLock(data) {
   if (!data || typeof data !== 'object' || Array.isArray(data)) return 'expected a JSON object';
   if (!Array.isArray(data.sources)) return '"sources" must be a list';
   for (const s of data.sources) {
-    if (!s || typeof s.repo !== 'string' || typeof s.ref !== 'string') return 'every source needs "repo" and "ref"';
-    if (typeof s.commit !== 'string' || !/^[0-9a-f]{40}$/.test(s.commit)) return `source ${s.repo} needs a full 40-character "commit"`;
+    if (!s || typeof s !== 'object') return 'every source must be an object';
+    try {
+      assertSafeRepo(s.repo);
+      assertSafeRef(s.ref);
+      assertSafeCommit(s.commit);
+    } catch (e) {
+      return e.message;
+    }
     if (!Array.isArray(s.items)) return `source ${s.repo} needs an "items" list`;
     for (const i of s.items) {
-      if (!i || !TYPES.includes(i.type) || typeof i.name !== 'string' || typeof i.hash !== 'string') {
+      if (!i || !TYPES.includes(i.type) || typeof i.hash !== 'string') {
         return `source ${s.repo} has an item without "type", "name" and "hash"`;
       }
+      try { assertSafeItemName(i.name); } catch (e) { return e.message; }
     }
   }
   return null;

@@ -9,7 +9,8 @@ import { configCommand } from './commands/config.js';
 import { isValidTarget, listTargets, detectTargets, targetScope, DEFAULT_TARGET, ALL_TARGET } from './install/targets.js';
 import { TYPES } from './repo/scan.js';
 import { readConfig } from './util/config.js';
-import { log, setAscii } from './util/log.js';
+import { log, setAscii, printable } from './util/log.js';
+import { assertSafeRef } from './repo/validate.js';
 import { err as E } from './util/messages.js';
 import { printBanner } from './util/banner.js';
 import { findProjectRoot } from './project/project-file-and-lockfile.js';
@@ -155,7 +156,7 @@ export async function run(argv) {
     const rest = args.slice(1);
     const known = ['--frozen', '--check', '--prune', '--force', '--yes', '--allow-exec', '--dry-run'];
     const bad = rest.find(a => !known.includes(a));
-    if (bad) { log.err(`Unknown option: ${bad}`); process.exit(1); }
+    if (bad) { log.err(`Unknown option: ${printable(bad)}`); process.exit(1); }
     if (!root) { log.err(P.noProject); process.exit(1); }
     finish(await syncCommand({
       frozen: rest.includes('--frozen'),
@@ -181,7 +182,7 @@ export async function run(argv) {
       while (j < rest.length && !rest[j].startsWith('-')) {
         const val = rest[j];
         if (!isValidTarget(val)) {
-          log.err(`Unknown target "${val}". Valid targets: ${listTargets().join(', ')}, all.`);
+          log.err(`Unknown target "${printable(val)}". Valid targets: ${listTargets().join(', ')}, all.`);
           process.exit(1);
         }
         listTargets_.push(val); j++; consumed++;
@@ -229,7 +230,7 @@ export async function run(argv) {
     return;
   }
 
-  log.err(`Unknown command: ${command}`);
+  log.err(`Unknown command: ${printable(command)}`);
   log.info(HELP);
   process.exit(1);
 }
@@ -271,7 +272,7 @@ async function parseInstallArgs(args, command, { acceptRepo, acceptDashY, root =
       while (i < args.length && !args[i].startsWith('-')) {
         const val = args[i];
         if (!isValidTarget(val)) {
-          log.err(`Unknown target "${val}". Valid targets: ${listTargets().join(', ')}, all.`);
+          log.err(`Unknown target "${printable(val)}". Valid targets: ${listTargets().join(', ')}, all.`);
           process.exit(1);
           return null;
         }
@@ -290,11 +291,12 @@ async function parseInstallArgs(args, command, { acceptRepo, acceptDashY, root =
     } else if (a === '--ref') {
       const val = args[++i];
       if (!val || val.startsWith('-')) { log.err('--ref requires a branch or tag name.'); process.exit(1); return null; }
+      try { assertSafeRef(val); } catch (e) { log.err(e.message); process.exit(1); return null; }
       ref = val;
     } else if (a === '--dry-run') {
       dryRun = true;
     } else {
-      log.err(`Unknown option: ${a}`);
+      log.err(`Unknown option: ${printable(a)}`);
       log.info(HELP);
       process.exit(1);
       return null;

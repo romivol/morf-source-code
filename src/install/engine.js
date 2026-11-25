@@ -15,7 +15,7 @@ import { convertPrompt } from '../convert/prompts.js';
 import { convertHook } from '../convert/hooks.js';
 import { convertMcp } from '../convert/mcp.js';
 import { locate, currentHash, matchesRendered, write, remove, sourceHashOf } from './store.js';
-import { log } from '../util/log.js';
+import { log, printable } from '../util/log.js';
 import * as M from '../util/messages.js';
 
 // Bumped whenever a converter's output changes, so items installed by an older
@@ -54,7 +54,7 @@ function dedupeBySafeName(items) {
     const key = `${item.type}:${safe}`;
     if (seen.has(key)) {
       log.warn(
-        `name collision after sanitization: '${seen.get(key)}' and '${item.name}' ` +
+        `name collision after sanitization: '${printable(seen.get(key))}' and '${printable(item.name)}' ` +
         `both map to '${safe}'; skipping the latter.`
       );
       continue;

@@ -57,6 +57,29 @@ export const log = {
   },
 };
 
+// ── untrusted text ────────────────────────────────────────────────────────────
+//
+// Text that comes from a source repository, a project file, the lockfile, the
+// install record or a git error must not be able to move the cursor, clear a
+// line or reorder what the user reads before answering a question. `printable`
+// turns every control character (ESC, CR, backspace, newline, ...) and every
+// bidirectional-override character into a visible escape such as \x1b or \r.
+// Use it on any such value before it is printed.
+export function printable(value) {
+  let out = '';
+  for (const ch of String(value)) {
+    const c = ch.codePointAt(0);
+    if (c === 10) out += '\\n';
+    else if (c === 13) out += '\\r';
+    else if (c === 9) out += '\\t';
+    else if (c < 32 || (c >= 127 && c <= 159)) out += '\\x' + c.toString(16).padStart(2, '0');
+    else if ((c >= 0x200b && c <= 0x200f) || (c >= 0x202a && c <= 0x202e) || (c >= 0x2066 && c <= 0x2069) || c === 0xfeff) {
+      out += '\\u' + c.toString(16).padStart(4, '0');
+    } else out += ch;
+  }
+  return out;
+}
+
 // ── extra log surface used across commands ────────────────────────────────────
 
 log.bold  = (msg) => console.log(c(BOLD, msg));

@@ -18,7 +18,8 @@ import {
 import { prepare, selectItems, safeOrName } from '../install/engine.js';
 import { lockHashOf, toAction, applyActions, doubleRuleWarnings } from '../project/plan.js';
 import { approve, printPlan, defaultIo } from '../project/approve.js';
-import { log } from '../util/log.js';
+import { log, printable } from '../util/log.js';
+import { assertSafeRef } from '../repo/validate.js';
 import { project as P } from '../util/messages.js';
 
 //
@@ -39,9 +40,11 @@ export async function projectInstallCommand(args, ctx) {
   const repo = cleaned.stored;
   const targets = expandTargets(args.targets);
 
-  const pf = (await readProjectFile(root)) || emptyProject();
+  let pf;
   let lock;
   try {
+    if (args.ref) assertSafeRef(args.ref);
+    pf = (await readProjectFile(root)) || emptyProject();
     lock = (await readLockfile(root)) || emptyLock();
   } catch (e) {
     log.err(e.message);
@@ -64,28 +67,29 @@ export async function projectInstallCommand(args, ctx) {
   try {
     clone = await openClone(cleaned.cloneUrl, locked ? { commit: locked.commit, label: repo } : { ref, label: repo });
   } catch (e) {
-    log.err(e.message);
+    log.err(printable(e.message));
     return 1;
   }
 
   try {
     if (!ref) ref = clone.branch;
-    if (!ref) { log.err(`Could not tell which branch ${repo} is on. Pass --ref <branch>.`); return 1; }
+    if (!ref) { log.err(`Could not tell which branch ${printable(repo)} is on. Pass --ref <branch>.`); return 1; }
+    assertSafeRef(ref);
 
     const available = await scanRepo(clone.dir);
     const { selected, missing } = selectItems(available, args.names, args.all);
     for (const m of missing) {
       log.err(locked ? P.notInPinned(m.type, m.name, repo, clone.commit)
-                     : `${m.type} '${m.name}' not found in ${repo}; available: ${m.available.length ? m.available.join(', ') : '(none)'}`);
+                     : `${m.type} '${printable(m.name)}' not found in ${printable(repo)}; available: ${m.available.length ? printable(m.available.join(', ')) : '(none)'}`);
     }
     if (missing.length) return 1;
-    if (selected.length === 0) { log.info(`Nothing to install from ${repo}.`); return 0; }
+    if (selected.length === 0) { log.info(`Nothing to install from ${printable(repo)}.`); return 0; }
 
     const manifest = await readManifest();
     const lockEntries = [];
     const actions = [];
     for (const item of selected) {
-      if (item.invalid) { log.err(`${item.type} '${item.name}': ${item.invalid}`); return 1; }
+      if (item.invalid) { log.err(`${item.type} '${printable(item.name)}': ${printable(item.invalid)}`); return 1; }
       const name = safeOrName(item.name);
       const hash = await lockHashOf(item);
       const prior = findLockItem(locked, item.type, name);
@@ -115,7 +119,7 @@ export async function projectInstallCommand(args, ctx) {
     const edited = actions.filter(a => a.op === 'skip');
     if (edited.length > 0) {
       log.warn(P.skippedEdited(edited.length));
-      for (const a of edited) log.info(`    ${a.target}  ${a.type}  ${a.name}`);
+      for (const a of edited) log.info(`    ${a.target}  ${a.type}  ${printable(a.name)}`);
     }
     return failed > 0 ? 1 : 0;
   } finally {

@@ -5,7 +5,8 @@ import { scanRepo } from '../repo/scan.js';
 import { locate, currentHash, sourceHashOf, scanDisk } from '../install/store.js';
 import { withTempClone, assertGitAvailable } from '../repo/git.js';
 import { sanitizeName } from '../util/sanitize.js';
-import { log, tintWithHex, isAscii } from '../util/log.js';
+import { log, tintWithHex, isAscii, printable } from '../util/log.js';
+import { assertSafeRepo, assertSafeRef } from '../repo/validate.js';
 import { renderTable } from '../util/table.js';
 import { parseAgentFrontmatter } from '../convert/agents.js';
 import * as M from '../util/messages.js';
@@ -84,9 +85,19 @@ export async function listCommand(opts = {}) {
 
   const repoHashes = new Map();
   if (checkUpdates && withStatus.length > 0) {
-    await assertGitAvailable();
-    log.info(M.listCheckingHeader);
+    // Validate every repo and ref from the install record before git starts.
     const groups = groupByRepoRef(withStatus);
+    for (const [key, group] of [...groups.entries()]) {
+      try {
+        assertSafeRepo(group.repo, { commandLine: true });
+        if (group.ref) assertSafeRef(group.ref);
+      } catch (e) {
+        log.warn(`Could not check for updates: ${e.message}`);
+        groups.delete(key);
+      }
+    }
+    if (groups.size > 0) await assertGitAvailable();
+    log.info(M.listCheckingHeader);
     const groupList = [...groups.entries()];
     let checked = 0;
     for (const [groupKey, group] of groupList) {
@@ -107,7 +118,7 @@ export async function listCommand(opts = {}) {
           }
         });
       } catch (e) {
-        log.warn(`Could not check ${group.repo}: ${e.message}`);
+        log.warn(`Could not check ${printable(group.repo)}: ${printable(e.message)}`);
       }
       repoHashes.set(groupKey, itemHashes);
     }
@@ -225,16 +236,17 @@ function renderPivot(managed, unmanaged, checkUpdates, repoHashes) {
   ];
 
   const rows = rowGroups.map(g => {
-    let nameCell = g.color ? tintWithHex(g.name, g.color) : g.name;
+    const shownName = printable(g.name);
+    let nameCell = g.color ? tintWithHex(shownName, g.color) : shownName;
     if (nameCounts.get(`${g.type}\x00${g.name}`) > 1 && g.source) {
-      nameCell = `${nameCell} (${g.source})`;
+      nameCell = `${nameCell} (${printable(g.source)})`;
     }
     return [
       nameCell,
       g.type,
       ...tools.map(t => g.cells.get(t) || emptyCell),
-      g.source || '',
-      g.updated || '',
+      printable(g.source || ''),
+      printable(g.updated || ''),
     ];
   });
 

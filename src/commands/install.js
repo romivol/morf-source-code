@@ -6,7 +6,8 @@ import { expandTargets, targetScope } from '../install/targets.js';
 import { readManifest, writeManifest } from '../install/install-record.js';
 import { readConfig, resolveRepo } from '../util/config.js';
 import { selectItems, safeOrName, installOne } from '../install/engine.js';
-import { log } from '../util/log.js';
+import { log, printable } from '../util/log.js';
+import { assertSafeRef } from '../repo/validate.js';
 import { createTargetTable } from '../util/table.js';
 import * as M from '../util/messages.js';
 
@@ -16,7 +17,9 @@ export async function installCommand(args) {
   const { repoArg, names, all, targets, force, ref, dryRun } = args;
 
   const config = await readConfig();
+  // Both are validated before git is started (resolveRepo checks the repo).
   const repo = resolveRepo(repoArg, config);
+  if (ref) assertSafeRef(ref);
 
   await assertGitAvailable();
 
@@ -33,8 +36,8 @@ export async function installCommand(args) {
 
     const { selected, missing } = selectItems(available, names, all);
     for (const m of missing) {
-      log.miss(m.name);
-      log.dim(`${NOTE_INDENT}error: ${m.type} '${m.name}' not found in repo; available: ${m.available.length ? m.available.join(', ') : '(none)'}`);
+      log.miss(printable(m.name));
+      log.dim(`${NOTE_INDENT}error: ${m.type} '${printable(m.name)}' not found in repo; available: ${m.available.length ? printable(m.available.join(', ')) : '(none)'}`);
       counts.failed++;
     }
 
@@ -61,7 +64,7 @@ export async function installCommand(args) {
           }
         } catch (e) {
           if (table) table.row(concreteTarget, rowName, log.TAG.fail(), e.message);
-          else { log.err(`${item.name} (${concreteTarget})`); log.dim(`${NOTE_INDENT}error: ${e.message}`); }
+          else { log.err(`${printable(item.name)} (${concreteTarget})`); log.dim(`${NOTE_INDENT}error: ${printable(e.message)}`); }
           counts.failed++;
         }
       }

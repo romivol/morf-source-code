@@ -4,7 +4,8 @@ import { sanitizeName } from '../util/sanitize.js';
 import { expandTargets, targetScope } from '../install/targets.js';
 import { readManifest, writeManifest, recordsFor } from '../install/install-record.js';
 import { readConfig } from '../util/config.js';
-import { log } from '../util/log.js';
+import { log, printable } from '../util/log.js';
+import { assertSafeRepo, assertSafeRef } from '../repo/validate.js';
 import { createTargetTable } from '../util/table.js';
 import { installOne } from '../install/engine.js';
 import { countResult, printSummary } from './install.js';
@@ -13,7 +14,7 @@ import * as M from '../util/messages.js';
 export async function updateCommand(args) {
   const { names, all, targets, force, ref: refOverride, dryRun } = args;
 
-  await assertGitAvailable();
+  if (refOverride) assertSafeRef(refOverride);
   const config = await readConfig();
 
   const manifest = await readManifest();
@@ -51,9 +52,28 @@ export async function updateCommand(args) {
     return;
   }
 
+  // The install record is a file on disk: check what it says before any of it
+  // reaches git. A record that fails is reported and left alone.
+  const usable = [];
+  for (const r of toUpdate) {
+    try {
+      assertSafeRepo(r.repo, { commandLine: true });
+      if (r.ref) assertSafeRef(r.ref);
+      usable.push(r);
+    } catch (e) {
+      log.err(`${printable(r.type)} '${printable(r.name)}' (${printable(r.target)}): ${e.message}`);
+      counts.failed++;
+    }
+  }
+  if (usable.length === 0) {
+    printSummary(counts);
+    process.exit(1);
+  }
+  await assertGitAvailable();
+
   // Group by (repoKey + effective ref) so each repo is cloned once.
   const groups = new Map();
-  for (const r of toUpdate) {
+  for (const r of usable) {
     const useRef = refOverride !== null ? refOverride : (r.ref || null);
     const key = `${r.repoKey}\x00${useRef || ''}`;
     if (!groups.has(key)) groups.set(key, { repo: r.repo, ref: useRef, records: [] });
@@ -98,13 +118,13 @@ export async function updateCommand(args) {
             }
           } catch (e) {
             if (table) table.row(record.target, record.name, log.TAG.fail(), e.message);
-            else log.err(`Failed to update ${record.type} '${record.name}': ${e.message}`);
+            else log.err(`Failed to update ${record.type} '${printable(record.name)}': ${printable(e.message)}`);
             counts.failed++;
           }
         }
       });
     } catch (e) {
-      log.err(e.message);
+      log.err(printable(e.message));
       counts.failed += group.records.length;
     }
   }

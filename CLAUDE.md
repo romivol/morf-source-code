@@ -110,6 +110,13 @@ Three names, used in every user-visible string: the **project file** (`morf.json
 
 A corrupt manifest is renamed to `.bak.<timestamp>` and replaced. v1 manifests and the legacy `~/.ray/` directory are migrated on read. `repo/url.js` `normalizeRepo` produces the `repoKey` used to treat different URL spellings as the same repo.
 
+### Untrusted input (`repo/validate.js`, `util/log.js` `printable`)
+
+A repo, ref, commit, item name, hook command or MCP command can come from a file someone else wrote (`morf.json`, `morf.lock.json`, a source repository), from the command line, the config file or the install record. Two rules, each with tests in `test/project/security.test.js` and `terminal-output.test.js`:
+
+- **Nothing reaches git unvalidated.** `assertSafeRepo`, `assertSafeRef`, `assertSafeCommit` and `assertSafeItemName` run when the project files are read, in `resolveRepo`, and again inside `repo/git.js` before any spawn. `repo/git.js` is the only module that may import `child_process`; every call goes through `runGit`, puts `--` / `--end-of-options` before values, uses `--branch=<ref>`, and sets `GIT_ALLOW_PROTOCOL`. A command must validate before `assertGitAvailable()`, which itself starts git.
+- **Nothing untrusted is printed raw.** Pass such values through `printable` (the `t` tag in `util/messages.js` does it for message templates; `createTargetTable` and `printPlan` do it for their cells). `gitCalls` records arguments only, never the environment, because a failing assertion would print it.
+
 ### Output
 
 All terminal output goes through `util/log.js`; `util/table.js` renders the `TARGET / NAME / STATUS` tables, streaming rows as items finish (rationale in `docs/design/table-output.md`). Symbols switch to ASCII tokens with `--ascii`, `MORF_ASCII=1`, or automatically when stdout is not a TTY, so piped output differs from a terminal. Color is off when not a TTY or when `NO_COLOR` is set.

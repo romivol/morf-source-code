@@ -16,6 +16,17 @@
 - **CI** runs lint and the full suite on Linux, macOS and Windows, on Node 18 and the current LTS, including a cross-system check of the lockfile hash and a fetch-by-commit test against a real remote.
 - **Exact commits.** `sync` fetches the pinned commit by SHA, falling back to a full clone when the host refuses, and never substitutes another commit.
 
+### Security
+
+- **A repo or ref can no longer reach git as an option or a remote helper.** A `repo` in `morf.json` or `morf.lock.json` starting with `-` (for example `--upload-pack=<command>`) was passed to git unchecked and ran that command during `morf sync`, before the plan was shown and even with `--dry-run`. Fixed in layers:
+  - The project file and the lockfile are rejected on read unless every repo is an `https://` or `ssh://` URL, a `user@host:path` address or a relative path starting with `./` or `../`; refs and item names are validated too. The same check applies to the command line, the config file's default repo and aliases, and repos read from the install record.
+  - Every git invocation puts `--` or `--end-of-options` before values, and passes a branch as `--branch=<ref>`.
+  - `GIT_ALLOW_PROTOCOL` restricts git to https, ssh and local files, so helpers such as `ext::` are refused by git itself.
+  - No git process starts before validation has passed.
+  - `http://` and `git://` repository URLs are no longer accepted.
+- **Untrusted text is escaped before it is printed.** Repo, ref, item names, hook and MCP commands, and git's own error text are shown with control characters (ESC, CR, backspace, newlines) and bidirectional-override characters made visible, so they cannot hide or rewrite the plan a user is asked to approve.
+- Validation errors no longer repeat credentials found in a repository URL.
+
 ### Changed
 
 - **Shared config files are edited in place.** In `settings.json`, `.mcp.json`, `opencode.json`, `kilo.jsonc`, `AGENTS.md`, `config.toml` and the other files morf shares with you, only morf's own entries change. Comments, key order and spacing are preserved, and removing an entry restores the file as it was. A file that cannot be parsed is reported and left untouched. Outside a project, the original of a file under the home directory is saved once as `<file>.morf-backup` before morf first changes it.

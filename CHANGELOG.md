@@ -14,6 +14,9 @@
 - **Portable content hashes.** In project mode morf checks out the exact bytes git stores (line-ending conversion off) and hashes with forward-slash paths in byte order, so a lockfile verifies on every OS.
 - **`--dry-run` in a project** prints the plan and stops: no questions and no changes, whatever the other flags say.
 - **CI** runs lint and the full suite on Linux, macOS and Windows, on Node 18 and the current LTS, including a cross-system check of the lockfile hash and a fetch-by-commit test against a real remote.
+- **Size warning.** An item whose files total more than 5 MB is pointed out with its size, in the plan in project mode and on its row in global mode. There is no size limit.
+- **Skipped hooks and MCP servers are named in the summary**, with the reason: you declined, or `--allow-exec` was not given.
+- **`npm run test:count`**, run in CI, fails if the test runner reports fewer tests than the test files define.
 - **Exact commits.** `sync` fetches the pinned commit by SHA, falling back to a full clone when the host refuses, and never substitutes another commit.
 
 ### Security
@@ -31,8 +34,12 @@
 - **Text containing morf's own block markers is refused.** A rule written into `AGENTS.md` could contain an end marker and leave text behind when removed.
 - **Names from the install record are checked before they are used in a path.** A hand-edited record can no longer address another item.
 - `morf config list` escapes the values it reads from the config file.
+- **A repository's `.gitattributes` can no longer trigger a git filter outside a project.** Global mode made an ordinary checkout, so a repository could name any filter configured in your git (git-lfs, for example) and git ran it during the clone. Global mode now makes the same raw checkout as project mode.
 
 ### Behaviour changes
+
+- **Upgrading from 1.1.2 does not rewrite items that have not changed.** 1.1.2 installed whatever an ordinary git checkout produced, which on Windows with `core.autocrlf` means CRLF files. morf now checks out the exact bytes git stores. An installed item you have not edited, whose content differs from the source only in line endings, is left exactly as it is and reported up to date; only the install record is refreshed. Nothing is reported as locally edited because of the upgrade. An item whose converted output really changed (agents for OpenCode, Kilo, Cursor, Copilot, Windsurf and Codex, whose formats were corrected) is updated on the next `morf update`.
+- **An item whose name cannot be made into a safe file name is reported as a failure**, by its original name, instead of being skipped silently. In a project this stops the command before anything is changed.
 
 - **`http://` and `git://` repository URLs are rejected**, on the command line as well as in the project files. Both are unencrypted and unauthenticated, so anyone on the network path can replace what is fetched; and keeping the list of transports as short as possible (`https`, `ssh`, local files) is what lets git itself refuse helper transports such as `ext::`. Use the `https://` or `ssh://` address of the same repository.
 - **Outside a project, hooks and MCP servers now need a yes, or `--allow-exec` when there is no terminal.** A script that runs `morf install` unattended and relies on hooks or MCP servers being installed must add `--allow-exec`.
@@ -47,6 +54,8 @@
 - **Wording.** `~/.morf/installed.json` is now called the "install record" everywhere a user can see it.
 
 ### Fixed
+
+- A checkout that fails because the system cannot create one of the repository's paths (a name that is not allowed, or too long) now names the path and says that nothing from that repository was installed.
 
 - `github.com/owner/repo` (no scheme) was handed to git unchanged and read as a local path. It is now expanded to `https://github.com/owner/repo` when it has that shape and no local directory of that name exists.
 - `permission` in OpenCode and Kilo agent frontmatter was commented out as unsupported; it is valid and is now kept.

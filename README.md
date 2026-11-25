@@ -173,9 +173,22 @@ A hook or an MCP server is a command that will run on your machine, so morf does
 - In a terminal, morf lists each one with the command it will run and asks `Install the hooks and MCP servers listed above?` The default is No. If you decline, they are skipped and everything else you asked for is still installed.
 - With no terminal, or when `CI` is set, morf never asks. It installs them only if you pass `--allow-exec`. Without the flag it prints the list, installs the other items, skips the hooks and MCP servers, and exits 1.
 - This applies to `morf install` and `morf update`, including a bare `morf install <repo>`. `--yes`, `-y` and `--force` do not count as `--allow-exec`.
+- Either way the summary ends with a line naming the hooks and MCP servers that were left out and why.
 - Removing a hook or MCP server runs nothing, so `morf uninstall` never needs the flag.
 
 Skills, agents, rules and prompts are not affected outside a project. Inside a project the stricter rule in [Nothing is installed without approval](#nothing-is-installed-without-approval) applies to every kind of item.
+
+### What morf refuses or warns about in a source repository
+
+- **Symbolic links and submodules.** An item that is one, or contains one, fails with a message naming it. morf never follows or copies a link and never fetches a submodule.
+- **Names that cannot be made safe.** Item names are reduced to lowercase letters, digits, `.`, `_` and `-`. A name with nothing usable left (`..`, an empty name) is reported as a failure, by its original name.
+- **Paths your system cannot hold.** If git cannot check out one of the repository's files here (a name the system does not allow, or a path that is too long), nothing from that repository is installed, and the message names the path.
+- **Large items.** An item over 5 MB is pointed out with its size. There is no size limit.
+- **Repository attributes.** A repository's `.gitattributes` has no effect on what morf checks out: no filters, no line-ending conversion.
+
+### Upgrading from 1.1.2
+
+Items you installed with 1.1.2 and have not edited are left exactly as they are, including their line endings, and show as up to date. Nothing is reported as locally edited because of the upgrade. Agents whose format morf has since corrected for a tool are updated the next time you run `morf update`.
 
 ### Aliases and a default repo
 
@@ -420,6 +433,7 @@ cd morf-source-code
 npm install
 npm test        # node --test
 npm run lint    # eslint
+npm run test:count   # guard: the runner reports every test that is defined
 node bin/cli.js --help
 ```
 

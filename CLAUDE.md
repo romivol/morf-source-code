@@ -14,11 +14,14 @@ npm test                                   # node --test (built-in runner, no fr
 node --test test/convert/agents.test.js    # one test file
 node --test --test-name-pattern="codex"    # tests whose name matches a pattern
 npm run lint                               # eslint . (flat config, ESLint 9)
+npm run test:count                         # guard: the runner reports every test each file defines
 node bin/cli.js --help                     # run the CLI from source
 MORF_NETWORK_TESTS=1 node --test test/repo/network.test.js   # tests that fetch from GitHub (skipped otherwise)
 ```
 
 CI (`.github/workflows/ci.yml`) runs `npm run lint` then `npm test` on Linux, macOS and Windows with Node 18 and the current LTS, with `MORF_NETWORK_TESTS=1`. Avoid APIs newer than Node 18. `test/util/portable-hash.test.js` holds a hash constant all three systems must reproduce; changing it invalidates every existing lockfile.
+
+Capture output in tests only with `run()` from `test/helpers.js`. Replacing `process.stdout.write` yourself can swallow the frames the test runner sends to its parent, and tests then vanish from the report; `npm run test:count` (also a CI step) exists to catch that. Before pushing, run the suite on Node 18 as well if you can: it has caught a failure the newer Node hid.
 
 ### Trying the CLI safely
 
@@ -117,6 +120,9 @@ A repo, ref, commit, item name, hook command or MCP command can come from a file
 - **Nothing reaches git unvalidated.** `assertSafeRepo`, `assertSafeRef`, `assertSafeCommit` and `assertSafeItemName` run when the project files are read, in `resolveRepo`, and again inside `repo/git.js` before any spawn. `repo/git.js` is the only module that may import `child_process`; every call goes through `runGit`, puts `--` / `--end-of-options` before values, uses `--branch=<ref>`, and sets `GIT_ALLOW_PROTOCOL`. A command must validate before `assertGitAvailable()`, which itself starts git.
 - **Links and submodules are refused.** Scan a checkout with `scanClone` (never `scanRepo` directly on a clone): it marks any item that is or contains a link (mode 120000) or submodule (160000) `invalid`. Every git call runs with `core.symlinks=false`. `portableHashPath`, `hashPath(..., { strict: true })` and `copyDir` throw on anything that is not a regular file or directory.
 - **Names are checked where paths are built.** `locate` throws unless the name is exactly what `sanitizeName` produces, so a name from the install record is as constrained as one from a repository. `assertNoMarker` refuses block text containing morf's own markers.
+- **Every checkout is raw**, in global mode too (`cloneTemp` and `openClone` both clone with `--no-checkout`, write `.git/info/attributes`, then check out), so a repository's `.gitattributes` cannot trigger a filter from the user's git config.
+- **Upgrades do not rewrite unchanged items.** `prepare` returns `adopt` when an installed, unedited item matches what morf would write apart from line endings (`matchesRendered(..., { ignoreLineEndings: true })`); only the record is refreshed. This is what keeps a 1.1.2 install on Windows (CRLF files) untouched. Do not remove it without re-running `test/commands/upgrade-from-1.1.2.test.js`.
+- **Nothing is dropped silently.** An item whose name cannot be sanitized is returned by the scanner with `invalid` set.
 - **Hooks and MCP servers always need approval.** Project mode: `approve`. Global mode: `approveExec` in `commands/install.js` and `update.js`.
 - **Nothing untrusted is printed raw.** Pass such values through `printable` (the `t` tag in `util/messages.js` does it for message templates; `createTargetTable` and `printPlan` do it for their cells). `gitCalls` records arguments only, never the environment, because a failing assertion would print it.
 

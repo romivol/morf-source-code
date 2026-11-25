@@ -4,6 +4,7 @@ import { TYPES } from '../repo/scan.js';
 import { sanitizeName } from '../util/sanitize.js';
 import { readManifest, writeManifest, getRecord, deleteRecord, recordsFor } from '../install/install-record.js';
 import { locate, remove } from '../install/store.js';
+import { removeEmptyCreatedDirs } from '../install/engine.js';
 import { log } from '../util/log.js';
 import { readConfig, resolveRepo } from '../util/config.js';
 import { sameRepo } from '../repo/url.js';
@@ -95,6 +96,7 @@ export async function uninstallCommand(args) {
       const loc = locate(req.target, req.type, req.name);
       try {
         await remove(loc, record);
+        await removeEmptyCreatedDirs(manifest, loc);
       } catch (e) {
         if (e.code === 'EACCES' || e.code === 'EPERM') throw new Error(M.err.permission(loc.destPath));
         throw e;

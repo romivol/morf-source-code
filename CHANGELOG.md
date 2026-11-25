@@ -55,6 +55,7 @@
 
 ### Fixed
 
+- **Uninstall no longer leaves empty directories behind.** When morf has to create a directory to hold an item (for example `~/.claude/rules/`), it notes that in the install record, and removes the directory again when the last item in it is uninstalled. A directory that existed before, or that still holds anything else, is never removed.
 - **A remote MCP server installed in a project is now seen by Claude Code.** The entry in the shared `.mcp.json` carried `"tools": ["*"]`, and Claude Code silently ignores a remote (`http` or `sse`) entry with that key. morf now writes `tools` on local entries only; Copilot defaults to all tools without it. Existing entries are rewritten on the next `morf sync` or `morf install`.
 - **`morf uninstall <repo>` ignored the repository.** The argument was accepted and dropped, so `morf uninstall <repo> --all` removed everything morf manages. It now removes only what was installed from that repository, in global and project mode, and exits 1 without removing anything when nothing came from it.
 

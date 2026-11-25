@@ -79,7 +79,6 @@ Known behaviour that is probably not what a user expects. These are not unverifi
 
 | What | Detail |
 |---|---|
-| Global uninstall leaves an empty directory behind | When a global install creates a directory that did not exist (seen with `~/.claude/rules/`), uninstall removes the file but not the directory. |
 | One uncheckable path fails the whole repository | If git cannot create one file of a source repository on this system, nothing from that repository can be installed here, even items that have nothing to do with that file. The message names the path. Left as it is by decision. |
 | No size limit | An item of any size is installed; over 5 MB it is flagged with a warning. Left as it is by decision. |
 | File names with control characters, backslash or colon | The test for these builds its repository through git, and git on Windows refuses to record such names, so that test runs on Linux and macOS only. |

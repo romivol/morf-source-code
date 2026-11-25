@@ -2,7 +2,7 @@
 // (prepare), carry it out (commit), and remove it again (removeInstalled).
 // Shared by the global commands and by project mode.
 
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { promises as fs } from 'node:fs';
 import { TYPES } from '../repo/scan.js';
 import { sanitizeName } from '../util/sanitize.js';
@@ -215,6 +215,45 @@ export async function prepare(item, options) {
   return { ...base, status: isUpdate ? 'replace' : 'install', rendered, isUpdate, destExists, overwrite: isLocallyModified };
 }
 
+// ── directories morf created ─────────────────────────────────────────────────
+//
+// The install record lists every directory morf had to create to hold an item
+// (`createdDirs`). When the last item leaves such a directory, the directory is
+// removed too. A directory that was already there is never listed, so it is
+// never removed.
+
+// The directories on the way to `dir` that do not exist yet, outermost first.
+async function missingDirs(dir) {
+  const out = [];
+  let d = dir;
+  for (;;) {
+    try { await fs.stat(d); break; } catch { out.unshift(d); }
+    const parent = dirname(d);
+    if (parent === d) break;
+    d = parent;
+  }
+  return out;
+}
+
+const holdsFiles = loc => loc.kind === 'dir' || loc.kind === 'file';
+
+// After removing an item: delete the directory it was in when morf created it
+// and it is now empty, then the same for each parent.
+export async function removeEmptyCreatedDirs(manifest, loc) {
+  if (!holdsFiles(loc) || !Array.isArray(manifest.createdDirs)) return;
+  let d = loc.mapping.base;
+  while (manifest.createdDirs.includes(d)) {
+    try {
+      await fs.rmdir(d);            // fails when anything is left in it
+    } catch (e) {
+      if (e.code !== 'ENOENT') break;
+    }
+    manifest.createdDirs = manifest.createdDirs.filter(x => x !== d);
+    d = dirname(d);
+  }
+  if (manifest.createdDirs.length === 0) delete manifest.createdDirs;
+}
+
 // Carry out a prepared 'install' / 'replace' / 'adopt' and update the install
 // record. Returns { result, tagName, note }.
 export async function commit(prep, options) {
@@ -231,8 +270,10 @@ export async function commit(prep, options) {
     payload = prep.payload;
   } else {
     let written;
+    const made = holdsFiles(loc) ? await missingDirs(loc.mapping.base) : [];
     try {
       written = await write(loc, prep.rendered, existing);
+      if (made.length) manifest.createdDirs = [...new Set([...(manifest.createdDirs || []), ...made])];
     } catch (e) {
       if (e.code === 'EACCES' || e.code === 'EPERM') throw new Error(M.err.permission(loc.destPath));
       throw e;
@@ -291,7 +332,10 @@ export async function removeInstalled(manifest, record) {
   const project = record.project || '';
   const loc = locate(record.target, record.type, record.name, project ? { project } : null);
   const others = coOwners(manifest, loc, project, record.target);
-  if (others.length === 0) await remove(loc, record);
+  if (others.length === 0) {
+    await remove(loc, record);
+    await removeEmptyCreatedDirs(manifest, loc);
+  }
   deleteRecord(manifest, record.type, record.name, record.target, project);
   return others.length === 0;
 }

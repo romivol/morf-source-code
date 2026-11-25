@@ -24,7 +24,7 @@ export const CONVERTER_VERSION = 2;
 
 // Sanitized name for display; falls back to the raw name if it can't be sanitized.
 export function safeOrName(name) {
-  try { return sanitizeName(name); } catch { return name; }
+  try { return sanitizeName(name); } catch { return name === '' ? '(empty name)' : name; }
 }
 
 // Pick the items a command asked for out of what a repo offers.
@@ -50,7 +50,14 @@ function dedupeBySafeName(items) {
   const out = [];
   for (const item of items) {
     let safe;
-    try { safe = sanitizeName(item.name); } catch { continue; }
+    try {
+      safe = sanitizeName(item.name);
+    } catch {
+      // A name that cannot be made safe is never dropped silently: the item is
+      // kept (the scanner has marked it invalid) so it shows up as a failure.
+      out.push(item);
+      continue;
+    }
     const key = `${item.type}:${safe}`;
     if (seen.has(key)) {
       log.warn(

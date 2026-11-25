@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs';
 import { join, relative } from 'node:path';
 import { printable } from '../util/log.js';
+import { sanitizeName } from '../util/sanitize.js';
 import { parseJsonc } from '../install/json-file.js';
 
 // Every primitive morf understands, in display/install order.
@@ -37,6 +38,14 @@ export async function scanRepo(repoDir, special = null) {
   const items = groups.flat();
   for (const item of items) {
     if (item.invalid) continue;
+    // A name that cannot be turned into a safe file name ("..", "", "...") is
+    // a failure to report, not something to skip.
+    try {
+      sanitizeName(item.name);
+    } catch {
+      item.invalid = 'its name cannot be turned into a safe file name';
+      continue;
+    }
     const rel = relative(repoDir, item.srcPath).split('\\').join('/');
     const within = p => p === rel || p.startsWith(rel + '/');
     const link = special && special.symlinks.find(within);

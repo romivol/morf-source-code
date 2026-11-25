@@ -137,20 +137,57 @@ test('awkward item names are sanitized or refused, and never leave the destinati
   const servers = Object.keys(JSON.parse(readFileSync(join(m.home, '.claude.json'), 'utf8')).mcpServers);
   for (const s of servers) assert.match(s, /^[a-z0-9][a-z0-9._-]*$/, `MCP server key ${JSON.stringify(s)}`);
   assert.ok(servers.includes('good-server') && servers.includes('evil') && servers.includes('rf'));
+  // Names that cannot be made safe are failed rows, shown by their original
+  // name: the agent "...", and the MCP servers ".." and "".
+  assert.equal(g.status, 1, g.stdout + g.stderr);
+  assert.match(g.stdout, /claude\s+\.\.\.\s+\[FAIL\]\s+its name cannot be turned into a safe file name/);
+  assert.match(g.stdout, /claude\s+\.\.\s+\[FAIL\]\s+its name cannot be turned into a safe file name/);
+  assert.match(g.stdout, /claude\s+\(empty name\)\s+\[FAIL\]\s+its name cannot be turned into a safe file name/);
   // Nothing printed raw, whatever the names were.
   assert.ok(!(g.stdout + g.stderr).includes(ESC));
   a.assertContained('global');
   await resetGlobal();
 
+  // Project mode: an unusable name is a validation failure, so nothing changes.
   const p = await projectInstall(a.root, repo);
+  assert.equal(p.code, 1, p.out);
+  assert.match(p.out, /its name cannot be turned into a safe file name/);
   assert.ok(!p.out.includes(ESC));
+  assert.deepEqual(files(a.root), ['morf.json']);
   a.assertContained('project');
-  // The project files hold sanitized names only.
-  if (exists(a.root, 'morf.lock.json')) {
-    for (const s of JSON.parse(readFileSync(join(a.root, 'morf.lock.json'), 'utf8')).sources) {
-      for (const i of s.items) assert.match(i.name, /^[a-z0-9][a-z0-9._-]*$/);
-    }
+
+  // Naming the usable items installs them, and the project files hold
+  // sanitized names only.
+  const named = await projectInstall(a.root, repo, {
+    all: false, names: { ...NAMES(), agent: ['-rf', 'UPPER Case & spaces'], skill: ['-dash'], mcp: ['../../evil', 'good-server'] },
+  });
+  assert.equal(named.code, 0, named.out);
+  for (const s of JSON.parse(readFileSync(join(a.root, 'morf.lock.json'), 'utf8')).sources) {
+    for (const i of s.items) assert.match(i.name, /^[a-z0-9][a-z0-9._-]*$/);
   }
+  assert.ok(exists(a.root, '.claude/agents/rf.md') && exists(a.root, '.claude/agents/upper-case---spaces.md'));
+  a.assertContained('project, named');
+});
+
+test('a path the system cannot check out fails the whole repository, naming the path', async () => {
+  const a = await arena();
+  const long = 'x'.repeat(300);
+  const repo = makeRepo({ 'agents/good.md': AGENT });
+  repo.commitEntries([{ path: `agents/${long}.md`, content: AGENT }]);
+
+  const g = globalInstall(a.cwd, repo);
+  assert.equal(g.status, 1, g.stdout + g.stderr);
+  const out = g.stdout + g.stderr;
+  assert.match(out, new RegExp(`could not check out "agents/${long}\\.md" from `));
+  assert.match(out, /Nothing from that repository was installed\./);
+  assert.ok(!exists(m.home, '.claude/agents/good.md'), 'part of the repository was installed');
+  a.assertContained('global');
+
+  const p = await projectInstall(a.root, repo);
+  assert.equal(p.code, 1, p.out);
+  assert.match(p.out, /could not check out "agents\/x+\.md" from .*Nothing from that repository was installed\./);
+  assert.deepEqual(files(a.root), ['morf.json']);
+  a.assertContained('project');
 });
 
 test('file names a system cannot hold (control characters, backslash, colon)', async (t) => {

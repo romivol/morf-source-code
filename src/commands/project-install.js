@@ -95,7 +95,13 @@ export async function projectInstallCommand(args, ctx) {
       if (prior && prior.hash !== hash) { log.err(P.hashMismatch(item.type, name, repo)); return 1; }
       lockEntries.push({ type: item.type, name, hash });
       for (const target of targets) {
-        const prep = await prepare(item, { target, manifest, force: args.force, config, scope, sourceHash: hash });
+        let prep;
+        try {
+          prep = await prepare(item, { target, manifest, force: args.force, config, scope, sourceHash: hash });
+        } catch (e) {
+          log.err(`${item.type} '${printable(name)}' (${target}): ${printable(e.message)}`);
+          return 1;
+        }
         actions.push(toAction(prep, { item, target, repo, commit: clone.commit, force: args.force }));
       }
     }

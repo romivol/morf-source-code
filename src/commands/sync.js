@@ -131,9 +131,16 @@ export async function syncCommand(flags, ctx) {
       for (const target of d.targets) {
         desiredTriples.add(tripleKey(d.type, safeOrName(d.name), target));
         if (!d.item) continue;   // --check, source not locked yet: reported as declaration drift
-        const prep = await prepare(d.item, {
-          target, manifest, force: flags.force, config, scope, sourceHash: d.hash,
-        });
+        let prep;
+        try {
+          prep = await prepare(d.item, {
+            target, manifest, force: flags.force, config, scope, sourceHash: d.hash,
+          });
+        } catch (e) {
+          // Still in validation: nothing has been changed.
+          log.err(`${d.type} '${printable(d.name)}' (${target}): ${printable(e.message)}`);
+          return 1;
+        }
         actions.push(toAction(prep, { item: d.item, target, repo: d.repo, commit: d.commit, force: flags.force }));
       }
     }

@@ -14,7 +14,7 @@ import { convertRule } from '../convert/rules.js';
 import { convertPrompt } from '../convert/prompts.js';
 import { convertHook } from '../convert/hooks.js';
 import { convertMcp } from '../convert/mcp.js';
-import { locate, currentHash, matchesRendered, write, remove, sourceHashOf } from './store.js';
+import { locate, currentHash, matchesRendered, write, remove, sourceHashOf, assertNoMarker } from './store.js';
 import { log, printable } from '../util/log.js';
 import * as M from '../util/messages.js';
 
@@ -181,6 +181,7 @@ export async function prepare(item, options) {
 
   if (!rendered) rendered = await render(item, loc, config);
   if (rendered.unsupported) return { ...base, status: 'unsupported', reason: rendered.unsupported };
+  assertNoMarker(loc, rendered.text);
 
   const isUpdate = destExists && (Boolean(existing) || Boolean(owner));
   return { ...base, status: isUpdate ? 'replace' : 'install', rendered, isUpdate, destExists, overwrite: isLocallyModified };

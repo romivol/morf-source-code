@@ -21,7 +21,8 @@ import { promises as fs } from 'node:fs';
 import { homedir } from 'node:os';
 import { join, relative, isAbsolute } from 'node:path';
 import { tableFor, resolveDestination } from './targets.js';
-import { assertPathInside } from '../util/sanitize.js';
+import { assertPathInside, sanitizeName } from '../util/sanitize.js';
+import { printable } from '../util/log.js';
 import { ensureDir, copyDir, removePath, hashPath } from '../util/fs.js';
 import {
   readJsonFile, readTextOrNull, atomicWrite, hashValue, hashText, deepEqual,
@@ -46,6 +47,16 @@ async function backupOnce(file) {
 // Resolve the on-disk location of an item. `name` must already be sanitized.
 // `scope` is null for a global install or { project: root } for project mode.
 export function locate(target, type, name, scope = null) {
+  // The name becomes part of a path, so it is checked here, at the one place
+  // every path is built — whether it came from a repository, the project file
+  // or the install record. It must be exactly what the sanitizer produces.
+  let safe = null;
+  try { safe = sanitizeName(name); } catch { /* not sanitizable at all */ }
+  if (typeof name !== 'string' || safe !== name) {
+    throw new Error(
+      `The item name "${printable(String(name))}" is not in the form morf uses for file names` +
+      `${safe ? ` (expected "${safe}")` : ''}. If it comes from the install record, that entry is damaged.`);
+  }
   const mapping = resolveDestination(target, type, scope);
   const { kind } = mapping;
   // Outside a project, a shared user file under the home directory is backed
@@ -181,6 +192,21 @@ function normalizeInner(text) {
   return text.replace(/\r\n/g, '\n').replace(/\n+$/, '');
 }
 
+// Text written into a block must not contain anything that looks like one of
+// morf's own marker lines: the block would end early, and the rest of the text
+// would be left behind in the user's file when the item is removed.
+const MARKER_IN_TEXT = /<!--\s*\/?morf:[^>]*-->|^[ \t]*#[ \t]*(?:>>>|<<<)[ \t]*morf\b/m;
+
+export function assertNoMarker(loc, text) {
+  if (loc.kind !== 'block') return;
+  const found = String(text).match(MARKER_IN_TEXT);
+  if (found) {
+    throw new Error(
+      `its text contains one of morf's own block markers ("${printable(found[0].trim())}"), ` +
+      `which would break the block in ${loc.mapping.file}`);
+  }
+}
+
 // A TOML table morf is about to write must not already exist outside its block.
 function assertNoForeignTable(outsideLines, inner, file) {
   const header = inner.split('\n').find(l => l.startsWith('['));
@@ -292,6 +318,7 @@ export async function write(loc, rendered, record = null) {
   }
 
   // block: only the lines between morf's markers are ever touched.
+  assertNoMarker(loc, rendered.text);
   const m = markers(loc);
   const inner = normalizeInner(rendered.text);
   const text = await readTextOrNull(mapping.file);

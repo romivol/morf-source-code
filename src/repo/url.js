@@ -66,11 +66,6 @@ function isScpStyle(s) {
   return !HAS_SCHEME.test(s) && !/^[a-zA-Z]:[/\\]/.test(s) && /^(?:[^@/\s]+@)?[^/:\s]+:[^\s]+$/.test(s);
 }
 
-export function isLocalRepo(repo) {
-  const s = String(repo).trim();
-  return !HAS_SCHEME.test(s) && !isScpStyle(s);
-}
-
 // Prepare a repo argument for the committed project files.
 // Returns { stored, cloneUrl, local }:
 //   stored    what goes into morf.json / morf.lock.json — no credentials, no

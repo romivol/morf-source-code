@@ -300,12 +300,6 @@ export function tableFor(scope) {
   return getProjectTargets(scope.project);
 }
 
-// True when `target` has a destination for `type`.
-export function supportsType(target, type, scope = null) {
-  const profile = tableFor(scope)[target];
-  return Boolean(profile && profile.types[type]);
-}
-
 export function resolveDestination(target, type, scope = null) {
   const profile = tableFor(scope)[target];
   if (!profile) {

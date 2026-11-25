@@ -18,17 +18,6 @@ export const DRY_RUN_PREFIX = '[dry-run]';
 export const installed   = (type, name, dest) => `${log.TAG.ok()} Installed ${type} '${name}' -> ${dest}`;
 export const updated     = (type, name, dest) => `${log.TAG.upd()} Updated ${type} '${name}' -> ${dest}`;
 export const upToDate    = (name)             => `${log.TAG.ok()} ${name} is already up to date`;
-export const updatedShort = (type, name)      => `${log.TAG.upd()} Updated ${type} '${name}'`;
-
-export const locallyModified = (name, target) => [
-  `${GLYPH.warn} ${name} (${target}) has local changes that would be lost.`,
-  `  Re-run with --force to overwrite.`,
-];
-
-export const notFoundInRepo = (type, name, repo, available) => [
-  `${GLYPH.missing} ${type} '${name}' not found in ${repo}.`,
-  `  Available ${type}s: ${available.length ? available.join(', ') : '(none)'}.`,
-];
 
 export const notInstalledForUpdate = (name) =>
   `${GLYPH.missing} ${name} is not installed; use 'morf install' to add it.`;
@@ -73,17 +62,7 @@ export const uninstallSummary = (removed_, skipped, failed) =>
 
 // ── list ─────────────────────────────────────────────────────────────────────
 export const listEmpty           = `Nothing managed by morf yet.`;
-export const listManagedHeader   = `managed by morf:`;
-export const listUnmanagedHeader = `found on disk, not managed by morf:`;
-export const listUnmanagedNone   = `  (none)`;
 export const listCheckingHeader  = `Checking repos for updates...`;
-
-export const LIST_STATUS = {
-  upToDate:        `${GLYPH.ok} up to date`,
-  updateAvailable: `${GLYPH.updated} update available`,
-  locallyModified: `${GLYPH.modified} locally modified`,
-  missingFromDisk: `${GLYPH.missing} missing from disk`,
-};
 
 // ── dry-run ──────────────────────────────────────────────────────────────────
 export const dry = {

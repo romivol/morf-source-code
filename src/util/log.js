@@ -37,43 +37,14 @@ function sym(name) {
   return c(color, asciiMode ? ascii : uni);
 }
 
-// Visible width of the current token (ANSI codes excluded).
-function symWidth(name) {
-  return asciiMode ? SYMBOLS[name][1].length : 1;
-}
-
-export function tagWidth() {
-  return Math.max(...Object.keys(SYMBOLS).map(symWidth));
-}
-
-// Token padded so its visible width equals tagWidth(), plus one separator space.
-// Safe for fixed-width column output (list).
-function paddedSym(name) {
-  const pad = ' '.repeat(tagWidth() - symWidth(name) + 1);
-  return sym(name) + pad;
-}
-
 export const log = {
   // Central helpers add exactly one space between token and message.
   ok(msg)      { console.log(`${sym('ok')} ${msg}`); },
-  upd(msg)     { console.log(`${sym('upd')} ${msg}`); },
-  mod(msg)     { console.log(`${sym('mod')} ${msg}`); },
   miss(msg)    { console.log(`${sym('miss')} ${msg}`); },
   warn(msg)    { console.warn(`${sym('warn')} ${msg}`); },
   err(msg)     { console.error(`${sym('fail')} ${msg}`); },
   info(msg)    { console.log(msg); },
   dim(msg)     { console.log(c(DIM, msg)); },
-  header(msg)  { console.log(c(BOLD, msg)); },
-
-  // Padded variants for column-aligned output.
-  padded: {
-    ok:   () => paddedSym('ok'),
-    upd:  () => paddedSym('upd'),
-    mod:  () => paddedSym('mod'),
-    miss: () => paddedSym('miss'),
-    warn: () => paddedSym('warn'),
-    fail: () => paddedSym('fail'),
-  },
 
   // Raw symbols (token only, colored, no padding).
   TAG: {
@@ -84,22 +55,12 @@ export const log = {
     warn: () => sym('warn'),
     fail: () => sym('fail'),
   },
-
-  color: { c, GREEN, YELLOW, RED, CYAN, BOLD, DIM, useColor },
 };
-
-export const TAG_WIDTH = tagWidth();
 
 // ── extra log surface used across commands ────────────────────────────────────
 
 log.bold  = (msg) => console.log(c(BOLD, msg));
-log.cyan  = (msg) => console.log(c(CYAN, msg));
-log.name  = (str) => c(BOLD, str);
 log.meta  = (str) => c(DIM, str);
-// header: bold+cyan like the original
-log.header = (msg) => console.log(c(BOLD + CYAN, msg));
-// Back-compat: PADDED alias (older call sites use log.PADDED.ok())
-log.PADDED = log.padded;
 
 // Tint text with a #RRGGBB hex color via truecolor ANSI escape.
 // Returns plain text when color is off (non-TTY, NO_COLOR) or hex is malformed.

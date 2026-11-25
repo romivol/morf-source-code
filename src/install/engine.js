@@ -20,7 +20,7 @@ import * as M from '../util/messages.js';
 
 // Bumped whenever a converter's output changes, so items installed by an older
 // morf are re-rendered on the next install/update even if the source is unchanged.
-export const CONVERTER_VERSION = 3;
+export const CONVERTER_VERSION = 4;
 
 // Sanitized name for display; falls back to the raw name if it can't be sanitized.
 export function safeOrName(name) {

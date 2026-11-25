@@ -8,7 +8,7 @@ All tests in this repository check that morf *writes* the right bytes. None of t
 
 | Tool | Status |
 |---|---|
-| Claude Code | **Verified** in version 2.1.332 on 2026-11-25, in project mode and global mode, for all six kinds of item. One exception: a global MCP server (`~/.claude.json`) was not tested. |
+| Claude Code | **Verified** in version 2.1.332 on 2026-11-25, in project mode and global mode, for all six kinds of item. |
 | OpenCode, Kilo, Codex, Cursor, Copilot, Windsurf (Devin) | **Not verified.** Nothing morf writes for these tools has been loaded in the tool, apart from the two Copilot CLI checks in the table below. Everything in this file about them still comes from documentation. |
 
 ## Verified
@@ -19,8 +19,9 @@ All tests in this repository check that morf *writes* the right bytes. None of t
 | Claude Code, project mode: skill, agent, rule, prompt, hook and stdio MCP server are loaded from `.claude/skills/`, `.claude/agents/`, `.claude/rules/`, `.claude/commands/`, `hooks` in `.claude/settings.json` and `.mcp.json` | Listed by the tool: the headless session start lists the skill, agent, command and the MCP server as connected; `claude mcp get` shows the server with scope "Project config". Observed working: headless runs returned the rule's phrase with no tool call, the command's output, the subagent's reply, the skill's reply and the MCP tool's text; the hook wrote its marker line on prompt submit and before a Bash call. | Claude Code 2.1.332 | 2026-11-25 |
 | Claude Code, global mode: skill, agent, rule, prompt and hook are loaded from `~/.claude/skills/`, `~/.claude/agents/`, `~/.claude/rules/`, `~/.claude/commands/` and `hooks` in `~/.claude/settings.json` | Same two kinds of evidence, run from a directory with no project files. After uninstall `~/.claude/settings.json` and every existing file under the four directories were byte-identical to a backup. | Claude Code 2.1.332 | 2026-11-25 |
 | Claude Code asks once before running a project MCP server | `claude mcp get` reports "Pending approval" for the entry morf wrote; it connects once approved (tested with `enableAllProjectMcpServers` in `.claude/settings.local.json`). | Claude Code 2.1.332 | 2026-11-25 |
-| A remote MCP server in the project `.mcp.json` is written without a `tools` key, and Claude Code lists it | Claude Code drops a remote entry (`type: "http"`) that carries `tools`, without any message: `claude mcp get` says there is no such server. The same entry without `tools` is listed, and so is a local (stdio) entry with `tools`. morf now writes `tools` on local entries only. `test/project/shared-mcp.test.js` installs a remote server and asks `claude mcp get` for it (run with `MORF_REAL_TOOL_TESTS=1`); it fails against the old output. | Claude Code 2.1.332 | 2026-11-25 |
-| Copilot CLI reads the project `.mcp.json` and does not need `tools` | `copilot mcp list --json` in a trusted folder listed local and remote entries with and without `tools`, and showed `tools: ["*"]` for all of them. An untrusted folder is skipped with a warning. Listing only: no server was started and no model was called, because Copilot is not signed in here. GitHub's documentation gives `*` as the default. | Copilot CLI 1.0.116 | 2026-11-25 |
+| MCP servers in the project `.mcp.json` are written without a `tools` key, and Claude Code lists them | Claude Code drops a remote entry (`type: "http"`) that carries `tools`, without any message: `claude mcp get` says there is no such server. The same entry without `tools` is listed. morf first wrote `tools` on every shared entry; it now writes it on none, local or remote. `test/project/shared-mcp.test.js` installs a local and a remote server and asks `claude mcp get` for each (run with `MORF_REAL_TOOL_TESTS=1`); it fails against the first output. | Claude Code 2.1.332 | 2026-11-25 |
+| Copilot CLI lists the project `.mcp.json` entries morf writes, and does not need `tools` | `copilot mcp list --json` in a trusted folder lists the local and the remote entry with source `workspace` and reports `tools: ["*"]` for both (same test file, same switch). An untrusted folder is skipped with a warning. Listing only: no server was started and no model was called, because Copilot is not signed in here. GitHub's documentation gives `*` as the default. | Copilot CLI 1.0.116 | 2026-11-25 |
+| Claude Code, global mode: an MCP server is read from `mcpServers` at the top level of `~/.claude.json` | Installed with Claude Code closed; `claude mcp get` then reported "Scope: User config (available in all your projects)", "Status: Connected", "Type: stdio", "Command: node". Listed and connected; the server's tool was not called in global scope. Confirmed by user. | Claude Code 2.1.332 | 2026-11-25 |
 
 ## Project-level destinations (project mode)
 
@@ -40,7 +41,7 @@ All tests in this repository check that morf *writes* the right bytes. None of t
 
 | Tool | Item | Path | Doubt |
 |---|---|---|---|
-| Claude Code | MCP | `mcpServers` at the top level of `~/.claude.json` | Exact nesting for user scope not confirmed. Claude Code rewrites this file itself; install while it is not running. |
+| Claude Code | MCP | `mcpServers` at the top level of `~/.claude.json` | The location is verified (see above). Claude Code rewrites this file itself; install while it is not running. |
 | Codex | skills | `~/.codex/skills/<name>/` | **Not in Codex's current docs**, which list `~/.agents/skills`. Left as it was. |
 | Kilo | everything | `~/.kilo/...` with config in `~/.config/kilo/kilo.jsonc` | `~/.kilo` is scanned according to the source; not loaded. |
 | Windsurf | prompts | `.devin/workflows/<name>.md` | Workflows are documented only for legacy Cascade. Whether Devin Local runs them is not stated. |

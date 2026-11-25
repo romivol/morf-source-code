@@ -68,14 +68,15 @@ export function convertMcp(def, target, { name = 'server' } = {}) {
   }
 
   // A project .mcp.json is one entry read by both Claude Code and Copilot.
-  // "tools" is written only where every reader accepts it: Claude Code drops a
-  // remote entry that carries it, without a message (seen in 2.1.332), and
-  // Copilot defaults to all tools when the key is absent (seen in CLI 1.0.116).
+  // It never carries "tools": Claude Code drops a remote entry that has the
+  // key, without a message (seen in 2.1.332), and Copilot defaults to all tools
+  // when it is absent (seen in CLI 1.0.116). Only Copilot's own global file
+  // gets the key.
   if (target === 'shared') {
     return {
       value: s.remote
         ? clean({ type: s.transport, url: s.url, headers: s.headers })
-        : clean({ type: 'stdio', command: s.command, args: s.args, env: s.env, tools: ['*'] }),
+        : clean({ type: 'stdio', command: s.command, args: s.args, env: s.env }),
       notes,
     };
   }

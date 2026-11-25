@@ -95,7 +95,7 @@ test('shared item, two owners: uninstalling one keeps it, uninstalling both remo
   assert.ok(exists(root, '.agents/skills/pdf-skill/SKILL.md'));
   // One shared .mcp.json entry for Claude Code and Copilot, in the shape both read.
   assert.deepEqual(readJson(root, '.mcp.json').mcpServers.context7,
-    { type: 'stdio', command: 'npx', args: ['-y', 'ctx7'], env: { API_KEY: '${API_KEY}' }, tools: ['*'] });
+    { type: 'stdio', command: 'npx', args: ['-y', 'ctx7'], env: { API_KEY: '${API_KEY}' } });
   // A second sync sees no local edits on the shared items.
   assert.match((await sync(root, { yes: false, allowExec: false })).out, /Nothing to do/);
 

@@ -30,15 +30,17 @@ test('convertMcp(claude/copilot) keep ${VAR}', () => {
 });
 
 test('convertMcp(shared): the project .mcp.json entry Claude Code and Copilot both read', () => {
-  // Local: both tools accept the stdio shape with "tools".
-  assert.deepEqual(convertMcp(stdio, 'shared').value, { type: 'stdio', ...stdio, tools: ['*'] });
-  // Remote: no "tools" key. Claude Code silently drops a remote entry that has one.
+  // No "tools" key on either kind: neither tool needs it, and Claude Code
+  // silently drops a remote entry that has one.
+  assert.deepEqual(convertMcp(stdio, 'shared').value, { type: 'stdio', ...stdio });
   assert.deepEqual(convertMcp(remote, 'shared').value, remote);
   assert.ok(!('tools' in convertMcp({ type: 'sse', url: 'https://x/sse' }, 'shared').value));
   // Outside the shared file each tool keeps its own shape.
   assert.ok(!('tools' in convertMcp(remote, 'claude').value));
   assert.ok(!('tools' in convertMcp(stdio, 'claude').value));
+  // Copilot's own global file keeps it, on both kinds.
   assert.deepEqual(convertMcp(stdio, 'copilot').value.tools, ['*']);
+  assert.deepEqual(convertMcp(remote, 'copilot').value.tools, ['*']);
 });
 
 test('convertMcp(codex) renders a TOML table', () => {

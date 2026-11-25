@@ -5,8 +5,7 @@
 //
 //   ctx: { root, cwd, io, morfVersion }
 
-import { assertGitAvailable, openClone } from '../repo/git.js';
-import { scanRepo } from '../repo/scan.js';
+import { assertGitAvailable, openClone, scanClone } from '../repo/git.js';
 import { expandTargets } from '../install/targets.js';
 import { readManifest, writeManifest } from '../install/install-record.js';
 import { readConfig, resolveRepo } from '../util/config.js';
@@ -76,7 +75,7 @@ export async function projectInstallCommand(args, ctx) {
     if (!ref) { log.err(`Could not tell which branch ${printable(repo)} is on. Pass --ref <branch>.`); return 1; }
     assertSafeRef(ref);
 
-    const available = await scanRepo(clone.dir);
+    const available = await scanClone(clone.dir);
     const { selected, missing } = selectItems(available, args.names, args.all);
     for (const m of missing) {
       log.err(locked ? P.notInPinned(m.type, m.name, repo, clone.commit)

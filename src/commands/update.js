@@ -1,5 +1,5 @@
-import { assertGitAvailable, withTempClone } from '../repo/git.js';
-import { scanRepo, TYPES } from '../repo/scan.js';
+import { assertGitAvailable, withTempClone, scanClone } from '../repo/git.js';
+import { TYPES } from '../repo/scan.js';
 import { sanitizeName } from '../util/sanitize.js';
 import { expandTargets, targetScope } from '../install/targets.js';
 import { readManifest, writeManifest, recordsFor } from '../install/install-record.js';
@@ -92,7 +92,7 @@ export async function updateCommand(args, io = defaultIo()) {
   for (const group of groups.values()) {
     try {
       await withTempClone(group.repo, group.ref, async (cloneDir) => {
-        const available = await scanRepo(cloneDir);
+        const available = await scanClone(cloneDir);
         const find = record => available.find(i => i.type === record.type && safeOrNull(i.name) === record.name);
 
         // Replacing a hook or MCP server needs the same approval as installing one.

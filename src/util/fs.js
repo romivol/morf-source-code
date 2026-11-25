@@ -11,6 +11,8 @@ export async function removePath(p) {
 }
 
 export async function copyDir(src, dst) {
+  // Never copy a link, and never let one decide where a copy lands.
+  await collectFiles(src, { strict: true });
   // Remove existing destination first for a clean overwrite.
   await removePath(dst);
   await fs.cp(src, dst, { recursive: true });
@@ -18,13 +20,17 @@ export async function copyDir(src, dst) {
 
 // Deterministic sha256 of a file or directory.
 // For dirs: sort relative paths, hash relpath + NUL + content per file.
-export async function hashPath(p) {
-  const stat = await fs.stat(p);
+// `strict` is for content taken from a source repository: a symbolic link (or
+// anything else that is not a regular file) is an error there, so that it can
+// neither be followed nor left out of the hash.
+export async function hashPath(p, { strict = false } = {}) {
+  const stat = strict ? await fs.lstat(p) : await fs.stat(p);
+  if (strict && stat.isSymbolicLink()) throw new Error(`${p} is a symbolic link`);
   if (stat.isFile()) {
     return hashFile(p);
   }
   if (stat.isDirectory()) {
-    return hashDir(p);
+    return hashDir(p, strict);
   }
   throw new Error(`hashPath: unsupported file type at ${p}`);
 }
@@ -34,8 +40,8 @@ async function hashFile(p) {
   return createHash('sha256').update(buf).digest('hex');
 }
 
-async function hashDir(dir) {
-  const entries = await collectFiles(dir);
+async function hashDir(dir, strict = false) {
+  const entries = await collectFiles(dir, { strict });
   entries.sort((a, b) => a.rel.localeCompare(b.rel));
   const h = createHash('sha256');
   for (const { rel, abs } of entries) {
@@ -68,18 +74,22 @@ export function portableDigest(entries) {
 
 // Portable hash of a file (its bytes) or a directory (every file under it).
 export async function portableHashPath(p) {
-  const stat = await fs.stat(p);
+  // lstat, not stat: a link is never followed. Every entry must be a regular
+  // file or a directory, so nothing can be left out of a lockfile hash.
+  const stat = await fs.lstat(p);
+  if (stat.isSymbolicLink()) throw new Error(`${p} is a symbolic link`);
   if (stat.isFile()) {
     return portableDigest([{ rel: '', buf: await fs.readFile(p) }]);
   }
-  const files = await collectFiles(p);
+  const files = await collectFiles(p, { strict: true });
   const entries = [];
   for (const { rel, abs } of files) entries.push({ rel, buf: await fs.readFile(abs) });
   return portableDigest(entries);
 }
 
 // Recursively collect all files under dir as { rel, abs }.
-async function collectFiles(dir) {
+// With `strict`, anything that is not a regular file or a directory is an error.
+async function collectFiles(dir, { strict = false } = {}) {
   const results = [];
   async function walk(current) {
     const items = await fs.readdir(current, { withFileTypes: true });
@@ -89,6 +99,9 @@ async function collectFiles(dir) {
         await walk(abs);
       } else if (item.isFile()) {
         results.push({ rel: relative(dir, abs), abs });
+      } else if (strict) {
+        const what = item.isSymbolicLink() ? 'a symbolic link' : 'not a regular file';
+        throw new Error(`${relative(dir, abs).split('\\').join('/')} is ${what}; morf does not follow or copy links`);
       }
     }
   }

@@ -80,7 +80,7 @@ export function locate(target, type, name, scope = null) {
 // Hash of an item as it exists in the source repo (install-record flavour).
 export async function sourceHashOf(item) {
   if (item.payload !== undefined) return hashValue(item.payload);
-  return hashPath(item.srcPath);
+  return hashPath(item.srcPath, { strict: true });
 }
 
 // ── JSON helpers ──────────────────────────────────────────────────────────────

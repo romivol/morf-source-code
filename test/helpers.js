@@ -132,7 +132,23 @@ export function makeRepo(files = FIXTURE) {
     return git(dir, 'rev-parse', 'HEAD');
   };
   const first = commit(files, 'fixture');
-  return { dir, first, commit, head: () => git(dir, 'rev-parse', 'HEAD') };
+
+  // Add entries straight to git's index and commit them, without creating
+  // them on disk. This is how a test builds things a normal checkout on this
+  // machine might not allow: a symbolic link (mode 120000, content = target),
+  // a submodule (mode 160000, content = a commit id), or an awkward file name.
+  const commitEntries = (entries, message = 'entries') => {
+    for (const { mode = '100644', path, content = '' } of entries) {
+      const sha = mode === '160000'
+        ? content
+        : execFileSync('git', ['hash-object', '-w', '--stdin'], { cwd: dir, input: content, encoding: 'utf8' }).trim();
+      git(dir, 'update-index', '--add', '--cacheinfo', `${mode},${sha},${path}`);
+    }
+    git(dir, 'commit', '-q', '-m', message);
+    return git(dir, 'rev-parse', 'HEAD');
+  };
+
+  return { dir, first, commit, commitEntries, head: () => git(dir, 'rev-parse', 'HEAD') };
 }
 
 // A fake terminal. `answers` are returned to successive questions.

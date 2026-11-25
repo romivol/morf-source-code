@@ -1,9 +1,9 @@
 import { promises as fs } from 'node:fs';
 import { readManifest, recordsFor, getInstalledHash, getSourceHash } from '../install/install-record.js';
 import { listTargets } from '../install/targets.js';
-import { scanRepo } from '../repo/scan.js';
+
 import { locate, currentHash, sourceHashOf, scanDisk } from '../install/store.js';
-import { withTempClone, assertGitAvailable } from '../repo/git.js';
+import { withTempClone, assertGitAvailable, scanClone } from '../repo/git.js';
 import { sanitizeName } from '../util/sanitize.js';
 import { log, tintWithHex, isAscii, printable } from '../util/log.js';
 import { assertSafeRepo, assertSafeRef } from '../repo/validate.js';
@@ -110,7 +110,7 @@ export async function listCommand(opts = {}) {
       const itemHashes = new Map();
       try {
         await withTempClone(group.repo, group.ref, async (cloneDir) => {
-          const available = await scanRepo(cloneDir);
+          const available = await scanClone(cloneDir);
           for (const item of available) {
             try {
               itemHashes.set(`${item.type}:${sanitizeName(item.name)}`, await sourceHashOf(item));

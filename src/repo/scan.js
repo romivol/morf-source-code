@@ -1,5 +1,6 @@
 import { promises as fs } from 'node:fs';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
+import { printable } from '../util/log.js';
 import { parseJsonc } from '../install/json-file.js';
 
 // Every primitive morf understands, in display/install order.
@@ -18,7 +19,13 @@ export const TYPES = ['skill', 'agent', 'rule', 'prompt', 'hook', 'mcp'];
 //
 // hook and mcp items carry a parsed `payload`; a file that cannot be parsed is
 // still returned, with `invalid` set to the reason, so install can report it.
-export async function scanRepo(repoDir) {
+//
+// Symbolic links and submodules are never followed, copied or fetched. An item
+// that is one, or contains one, is returned with `invalid` set, so that
+// nothing from it is installed. `special` is what git says the checkout holds
+// ({ symlinks, submodules }, see git.js specialEntries); the directory is also
+// checked directly, which covers a link that exists on disk.
+export async function scanRepo(repoDir, special = null) {
   const groups = await Promise.all([
     collect(scanSkills, repoDir),
     collect(scanAgents, repoDir),
@@ -27,7 +34,42 @@ export async function scanRepo(repoDir) {
     collect(scanHooks, repoDir),
     collect(scanMcp, repoDir),
   ]);
-  return groups.flat();
+  const items = groups.flat();
+  for (const item of items) {
+    if (item.invalid) continue;
+    const rel = relative(repoDir, item.srcPath).split('\\').join('/');
+    const within = p => p === rel || p.startsWith(rel + '/');
+    const link = special && special.symlinks.find(within);
+    const sub = special && special.submodules.find(within);
+    if (link) item.invalid = refusedLink(link);
+    else if (sub) item.invalid = `contains a git submodule (${printable(sub)}); morf does not fetch submodules`;
+    else {
+      const onDisk = await findLinkOnDisk(item.srcPath);
+      if (onDisk !== null) item.invalid = refusedLink(rel + (onDisk ? '/' + onDisk : ''));
+    }
+  }
+  return items;
+}
+
+function refusedLink(path) {
+  return `contains a symbolic link (${printable(path)}); morf does not follow or copy links`;
+}
+
+// The path (relative to `p`, '' for `p` itself) of the first symbolic link at
+// or under `p`, or null when there is none.
+async function findLinkOnDisk(p) {
+  let st;
+  try { st = await fs.lstat(p); } catch { return null; }
+  if (st.isSymbolicLink()) return '';
+  if (!st.isDirectory()) return null;
+  for (const entry of await fs.readdir(p, { withFileTypes: true })) {
+    if (entry.isSymbolicLink()) return entry.name;
+    if (entry.isDirectory()) {
+      const inner = await findLinkOnDisk(join(p, entry.name));
+      if (inner !== null) return inner === '' ? entry.name : `${entry.name}/${inner}`;
+    }
+  }
+  return null;
 }
 
 async function collect(fn, repoDir) {
@@ -35,6 +77,9 @@ async function collect(fn, repoDir) {
   await fn(repoDir, items);
   return items;
 }
+
+// A link is listed like a file so that it can be refused by name.
+const isFileOrLink = entry => entry.isFile() || entry.isSymbolicLink();
 
 async function readDirOrEmpty(dir) {
   try {
@@ -61,6 +106,7 @@ async function isSkillDir(dirPath) {
 async function scanSkills(repoDir, items) {
   const skillsDir = join(repoDir, 'skills');
   for (const entry of await readDirOrEmpty(skillsDir)) {
+    if (entry.isSymbolicLink()) { items.push({ type: 'skill', name: entry.name, srcPath: join(skillsDir, entry.name) }); continue; }
     if (!entry.isDirectory()) continue;
     const skillDir = join(skillsDir, entry.name);
     if (!await isSkillDir(skillDir)) continue;
@@ -71,7 +117,7 @@ async function scanSkills(repoDir, items) {
 async function scanAgents(repoDir, items) {
   const agentsDir = join(repoDir, 'agents');
   for (const entry of await readDirOrEmpty(agentsDir)) {
-    if (!entry.isFile() || !entry.name.endsWith('.md')) continue;
+    if (!isFileOrLink(entry) || !entry.name.endsWith('.md')) continue;
     items.push({ type: 'agent', name: entry.name.slice(0, -3), srcPath: join(agentsDir, entry.name) });
   }
 }
@@ -80,7 +126,7 @@ async function scanRules(repoDir, items) {
   const dir = join(repoDir, 'rules');
   const seen = new Set();
   for (const entry of await readDirOrEmpty(dir)) {
-    if (!entry.isFile()) continue;
+    if (!isFileOrLink(entry)) continue;
     const name = stripExt(entry.name, ['.mdc', '.md']);
     if (!name || seen.has(name)) continue;
     seen.add(name);
@@ -93,7 +139,7 @@ async function scanPrompts(repoDir, items) {
   for (const sub of ['prompts', 'commands']) {
     const dir = join(repoDir, sub);
     for (const entry of await readDirOrEmpty(dir)) {
-      if (!entry.isFile()) continue;
+      if (!isFileOrLink(entry)) continue;
       const name = stripExt(entry.name, ['.prompt.md', '.md']);
       if (!name || seen.has(name)) continue;
       seen.add(name);
@@ -115,10 +161,11 @@ async function readJsonPayload(path) {
 async function scanHooks(repoDir, items) {
   const dir = join(repoDir, 'hooks');
   for (const entry of await readDirOrEmpty(dir)) {
-    if (!entry.isFile()) continue;
+    if (!isFileOrLink(entry)) continue;
     const name = stripExt(entry.name, ['.jsonc', '.json']);
     if (!name) continue;
     const srcPath = join(dir, entry.name);
+    if (entry.isSymbolicLink()) { items.push({ type: 'hook', name, srcPath, payload: {} }); continue; }
     try {
       const data = await readJsonPayload(srcPath);
       const payload = data.hooks && typeof data.hooks === 'object' && !Array.isArray(data.hooks)
@@ -156,10 +203,11 @@ async function scanMcp(repoDir, items) {
 
   const dir = join(repoDir, 'mcp');
   for (const entry of await readDirOrEmpty(dir)) {
-    if (!entry.isFile()) continue;
+    if (!isFileOrLink(entry)) continue;
     const name = stripExt(entry.name, ['.jsonc', '.json']);
     if (!name) continue;
     const srcPath = join(dir, entry.name);
+    if (entry.isSymbolicLink()) { items.push({ type: 'mcp', name, srcPath, payload: {} }); continue; }
     try {
       const data = await readJsonPayload(srcPath);
       const map = isServerDef(data) ? null : serverMap(data);
@@ -176,6 +224,11 @@ async function scanMcp(repoDir, items) {
   for (const file of ['.mcp.json', 'mcp.json']) {
     const srcPath = join(repoDir, file);
     try {
+      // A linked file is never read through the link: report it instead.
+      if ((await fs.lstat(srcPath)).isSymbolicLink()) {
+        items.push({ type: 'mcp', name: file, srcPath, payload: {} });
+        continue;
+      }
       const map = serverMap(await readJsonPayload(srcPath));
       if (map) addMap(map, srcPath);
     } catch { /* absent or unreadable root file: nothing to install */ }

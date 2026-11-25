@@ -5,8 +5,7 @@
 //
 //   ctx: { root, cwd, io, morfVersion }
 
-import { assertGitAvailable, openClone } from '../repo/git.js';
-import { scanRepo } from '../repo/scan.js';
+import { assertGitAvailable, openClone, scanClone } from '../repo/git.js';
 import { readManifest, writeManifest, recordsFor } from '../install/install-record.js';
 import { readConfig } from '../util/config.js';
 import { resolveStoredRepo } from '../repo/url.js';
@@ -100,7 +99,7 @@ export async function syncCommand(flags, ctx) {
         return 1;
       }
       clones.set(key, clone);
-      const available = await scanRepo(clone.dir);
+      const available = await scanClone(clone.dir);
       resolved.set(key, { commit: clone.commit, available, pinned });
 
       for (const d of src.items) {

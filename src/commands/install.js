@@ -1,7 +1,6 @@
 // morf install (global mode).
 
-import { assertGitAvailable, withTempClone } from '../repo/git.js';
-import { scanRepo } from '../repo/scan.js';
+import { assertGitAvailable, withTempClone, scanClone } from '../repo/git.js';
 import { expandTargets, targetScope } from '../install/targets.js';
 import { readManifest, writeManifest } from '../install/install-record.js';
 import { readConfig, resolveRepo } from '../util/config.js';
@@ -30,7 +29,7 @@ export async function installCommand(args, io = defaultIo()) {
   let execRefused = false;
 
   await withTempClone(repo, ref, async (cloneDir) => {
-    const available = await scanRepo(cloneDir);
+    const available = await scanClone(cloneDir);
 
     if (available.length === 0 && all) {
       log.info(M.err.emptyRepo(repo));

@@ -17,6 +17,7 @@ import { join } from 'node:path';
 import { promisify } from 'node:util';
 import { removePath } from '../util/fs.js';
 import { expandRepoShorthand } from './url.js';
+import { scanRepo } from './scan.js';
 import { assertSafeRepo, assertSafeRef, assertSafeCommit } from './validate.js';
 import { err as E } from '../util/messages.js';
 import { createSpinner, printable } from '../util/log.js';
@@ -48,8 +49,13 @@ function gitEnv(repo = null) {
 
 // The single place a process is spawned.
 async function runGit(args, { env = gitEnv(), timeout = CLONE_TIMEOUT_MS } = {}) {
-  gitCalls.push({ args, allowProtocol: env.GIT_ALLOW_PROTOCOL });
-  const { stdout } = await execFileP('git', args, { timeout, env });
+  // core.symlinks=false: a symbolic link stored in a repository is checked out
+  // as a small text file, never as a link, on every system. morf refuses such
+  // items anyway (see specialEntries); this makes sure nothing morf starts can
+  // create a link on disk even if that check were missed.
+  const full = ['-c', 'core.symlinks=false', ...args];
+  gitCalls.push({ args: full, allowProtocol: env.GIT_ALLOW_PROTOCOL });
+  const { stdout } = await execFileP('git', full, { timeout, env, maxBuffer: 64 * 1024 * 1024 });
   return stdout.trim();
 }
 
@@ -103,6 +109,31 @@ export async function withTempClone(repo, refOrFn, fn) {
   } finally {
     await removePath(dir).catch(() => {});
   }
+}
+
+// The entries of a checkout that are not regular files: symbolic links (mode
+// 120000) and submodules (mode 160000). morf never follows, copies or fetches
+// either; an item that contains one is refused. Read from git's index, so it
+// is the same answer on every system whatever the checkout looks like on disk.
+export async function specialEntries(dir) {
+  const out = await runGit(['-C', dir, 'ls-files', '--stage', '-z']);
+  const symlinks = [];
+  const submodules = [];
+  for (const entry of out.split('\0')) {
+    const tab = entry.indexOf('\t');
+    if (tab === -1) continue;
+    const mode = entry.slice(0, 6);
+    const path = entry.slice(tab + 1);
+    if (mode === '120000') symlinks.push(path);
+    else if (mode === '160000') submodules.push(path);
+  }
+  return { symlinks, submodules };
+}
+
+// Scan a checkout made by this module for items, refusing those that contain
+// a link or a submodule.
+export async function scanClone(dir) {
+  return scanRepo(dir, await specialEntries(dir));
 }
 
 // ── project mode: exact, byte-faithful checkouts ──────────────────────────────

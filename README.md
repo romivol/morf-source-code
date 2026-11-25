@@ -189,7 +189,18 @@ Skills, agents, rules and prompts are not affected outside a project. Inside a p
 
 ### Upgrading from 1.1.2
 
-Items you installed with 1.1.2 and have not edited are left exactly as they are, including their line endings, and show as up to date. Nothing is reported as locally edited because of the upgrade. Agents whose format morf has since corrected for a tool are updated the next time you run `morf update`.
+Install 2.0.0 and keep working. Items you installed with 1.1.2 and have not edited are left exactly as they are, including their line endings, and show as up to date. Nothing is reported as locally edited because of the upgrade, and the install record is migrated on the first run. Agents whose format morf has since corrected for a tool are updated the next time you run `morf update`.
+
+What behaves differently:
+
+- `morf install <repo>` with no item flags installs everything in the repository, and `--all` now includes rules, prompts, hooks and MCP servers.
+- With no `--target` and no configured default, install goes to every tool morf detects (1.1.2: OpenCode only). `update` and `uninstall` without `--target` act on every tool the item is installed in.
+- `morf uninstall <repo>` removes only what came from that repository, and exits 1 when nothing did.
+- Hooks and MCP servers need a yes, or `--allow-exec` when there is no terminal.
+- `http://` and `git://` repository URLs, and items containing symbolic links or submodules, are refused.
+- In a directory with a `morf.json`, commands work on the project; pass `--global` for the old behaviour.
+
+The full list is in [CHANGELOG.md](CHANGELOG.md).
 
 ### Aliases and a default repo
 

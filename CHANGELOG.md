@@ -1,6 +1,39 @@
 # Changelog
 
-## Unreleased
+## 2.0.0 - 2026-11-25
+
+### Upgrading from 1.1.2
+
+Install the new version and keep working: your install record is migrated on the first run and nothing you have installed is rewritten. These are all the places where 2.0.0 behaves differently from 1.1.2.
+
+**What happens to existing installs**
+
+- **Items that have not changed are not rewritten.** 1.1.2 installed whatever an ordinary git checkout produced, which on Windows with `core.autocrlf` means CRLF files. morf now checks out the exact bytes git stores. An installed item you have not edited is recognised as the same content whatever its line endings, left byte for byte as it is, and shown as up to date; only its entry in the install record is refreshed. Items you did edit are still reported and skipped unless you pass `--force`.
+- **The install record is migrated to a new version on first run.** Every existing record becomes a global install with the same key. 1.1.2 can still read the migrated file.
+- **Agents move to each tool's native location the next time they are installed or updated.** Cursor agents are written as subagents in `.cursor/agents/`, Windsurf (Devin) agents in `.devin/agents/`, and Codex agents as TOML in `~/.codex/agents/`. The copy 1.1.2 left in the old place is removed when the item moves.
+
+**Commands that now do something different**
+
+- **`morf install <repo>` with no item flags installs everything in the repository.** In 1.1.2 you had to name items or pass `--all`.
+- **`--all` covers six kinds of item, not two.** Rules, prompts, hooks and MCP servers are installed along with skills and agents.
+- **The default target is every tool morf detects.** With no `--target` and no configured default, 1.1.2 installed into OpenCode only. 2.0.0 installs into every tool it finds on the machine, and falls back to OpenCode when it finds none.
+- **`uninstall` and `update` without `--target` act on every tool the item is installed in**, not only the default tool.
+- **`morf uninstall <repo>` removes only what came from that repository.** 1.1.2 accepted the argument and ignored it, so `morf uninstall <repo> --all` removed everything morf manages. It now exits 1, and removes nothing, when nothing was installed from that repository.
+- **In a directory with a `morf.json` (or below one), commands work on the project.** `install`, `update` and `uninstall` write to the project's own tool directories, print a plan and ask before changing anything. Pass `--global` for the old behaviour there. Nothing changes in a directory without a `morf.json`.
+
+**Things that are now refused or need a yes**
+
+- **Hooks and MCP servers need approval.** Outside a project, `morf install` and `morf update` ask before installing one, and without a terminal they skip it unless `--allow-exec` is given. A script that runs `morf install` unattended and relies on hooks or MCP servers being installed must add `--allow-exec`.
+- **`http://` and `git://` repository URLs are rejected**, on the command line as well as in the project files. Both are unencrypted and unauthenticated, so anyone on the network path can replace what is fetched. Use `https://` or `ssh://`.
+- **A source repository containing symbolic links or submodules** no longer installs the items that contain them.
+- **An item whose name cannot be made into a safe file name is reported as a failure**, by its original name, instead of being skipped silently. In a project this stops the command before anything is changed.
+
+**Other differences you may notice**
+
+- **`github.com/owner/repo` without a scheme** is read as `https://github.com/owner/repo` unless a local directory of that name exists. 1.1.2 handed it to git as a local path.
+- **Shared config files are edited in place**, and outside a project a `<file>.morf-backup` copy is saved once before morf first changes a shared file under your home directory.
+- **Uninstall removes a directory morf itself created** once nothing is left in it.
+- **`~/.morf/installed.json` is called the "install record"** in every message.
 
 ### Added
 
@@ -35,15 +68,6 @@
 - **Names from the install record are checked before they are used in a path.** A hand-edited record can no longer address another item.
 - `morf config list` escapes the values it reads from the config file.
 - **A repository's `.gitattributes` can no longer trigger a git filter outside a project.** Global mode made an ordinary checkout, so a repository could name any filter configured in your git (git-lfs, for example) and git ran it during the clone. Global mode now makes the same raw checkout as project mode.
-
-### Behaviour changes
-
-- **Upgrading from 1.1.2 does not rewrite items that have not changed.** 1.1.2 installed whatever an ordinary git checkout produced, which on Windows with `core.autocrlf` means CRLF files. morf now checks out the exact bytes git stores. An installed item you have not edited, whose content differs from the source only in line endings, is left exactly as it is and reported up to date; only the install record is refreshed. Nothing is reported as locally edited because of the upgrade. An item whose converted output really changed (agents for OpenCode, Kilo, Cursor, Copilot, Windsurf and Codex, whose formats were corrected) is updated on the next `morf update`.
-- **An item whose name cannot be made into a safe file name is reported as a failure**, by its original name, instead of being skipped silently. In a project this stops the command before anything is changed.
-
-- **`http://` and `git://` repository URLs are rejected**, on the command line as well as in the project files. Both are unencrypted and unauthenticated, so anyone on the network path can replace what is fetched; and keeping the list of transports as short as possible (`https`, `ssh`, local files) is what lets git itself refuse helper transports such as `ext::`. Use the `https://` or `ssh://` address of the same repository.
-- **Outside a project, hooks and MCP servers now need a yes, or `--allow-exec` when there is no terminal.** A script that runs `morf install` unattended and relies on hooks or MCP servers being installed must add `--allow-exec`.
-- **A source repository containing symbolic links or submodules** no longer installs the items that contain them.
 
 ### Changed
 

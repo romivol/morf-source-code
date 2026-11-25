@@ -55,6 +55,8 @@
 
 ### Fixed
 
+- **`morf uninstall <repo>` ignored the repository.** The argument was accepted and dropped, so `morf uninstall <repo> --all` removed everything morf manages. It now removes only what was installed from that repository, in global and project mode, and exits 1 without removing anything when nothing came from it.
+
 - A checkout that fails because the system cannot create one of the repository's paths (a name that is not allowed, or too long) now names the path and says that nothing from that repository was installed.
 
 - `github.com/owner/repo` (no scheme) was handed to git unchanged and read as a local path. It is now expanded to `https://github.com/owner/repo` when it has that shape and no local directory of that name exists.

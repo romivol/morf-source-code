@@ -19,7 +19,9 @@ import { tripleKey } from '../project/plan.js';
 import { approve, printPlan, defaultIo } from '../project/approve.js';
 import { log } from '../util/log.js';
 import { createTargetTable } from '../util/table.js';
-import { project as P, notInstalled } from '../util/messages.js';
+import { project as P, notInstalled, nothingFromRepo } from '../util/messages.js';
+import { readConfig, resolveRepo } from '../util/config.js';
+import { cleanRepoForProject, sameRepo } from '../repo/url.js';
 
 //
 // args: { names, all, targets, yes, allowExec }
@@ -37,8 +39,27 @@ export async function projectUninstallCommand(args, ctx) {
     return 1;
   }
   const manifest = await readManifest();
-  const records = recordsFor(manifest, root);
-  const desired = desiredItems(pf);
+  let records = recordsFor(manifest, root);
+  let desired = desiredItems(pf);
+  const allDesired = desired;
+
+  // A repo argument narrows the command to items that came from that repo.
+  if (args.repoArg) {
+    let repo;
+    try {
+      repo = cleanRepoForProject(resolveRepo(args.repoArg, await readConfig()), root, ctx.cwd).stored;
+    } catch (e) {
+      log.err(e.message);
+      return 1;
+    }
+    const from = r => r === repo || sameRepo(r, repo, root);
+    records = records.filter(r => from(r.repo));
+    desired = desired.filter(d => from(d.repo));
+    if (records.length === 0 && desired.length === 0) {
+      log.err(nothingFromRepo(repo));
+      return 1;
+    }
+  }
 
   const only = expandTargets(args.targets);
   const targetOk = t => only.length === 0 || only.includes(t);
@@ -69,7 +90,7 @@ export async function projectUninstallCommand(args, ctx) {
       }
     }
   }
-  if (triples.size === 0) return 0;
+  if (triples.size === 0) return args.repoArg ? 1 : 0;
 
   const actions = [...triples.values()].map(t => ({
     op: 'remove', target: t.target, type: t.type, name: t.name, record: t.record,
@@ -102,7 +123,7 @@ export async function projectUninstallCommand(args, ctx) {
   let nextPf = pf;
   for (const a of actions) {
     // The project file stores names as written; match on the sanitized form.
-    const original = desired.find(d => d.type === a.type && safeOrName(d.name) === a.name);
+    const original = allDesired.find(d => d.type === a.type && safeOrName(d.name) === a.name);
     nextPf = removeFromProject(nextPf, a.type, original ? original.name : a.name, [a.target]);
   }
   await writeProjectFile(root, nextPf);

@@ -5,14 +5,30 @@ import { sanitizeName } from '../util/sanitize.js';
 import { readManifest, writeManifest, getRecord, deleteRecord, recordsFor } from '../install/install-record.js';
 import { locate, remove } from '../install/store.js';
 import { log } from '../util/log.js';
+import { readConfig, resolveRepo } from '../util/config.js';
+import { sameRepo } from '../repo/url.js';
 import { createTargetTable } from '../util/table.js';
 import * as M from '../util/messages.js';
 
 export async function uninstallCommand(args) {
-  const { names, all, targets, force, dryRun } = args;
+  const { repoArg, names, all, targets, force, dryRun } = args;
 
   const manifest = await readManifest();
-  const records = recordsFor(manifest, '');   // global installs only
+  let records = recordsFor(manifest, '');   // global installs only
+
+  // A repo argument narrows everything that follows to items installed from
+  // that repository. With --all it means "everything from that repo", never
+  // "everything morf manages".
+  let fromRepo = null;
+  if (repoArg) {
+    fromRepo = resolveRepo(repoArg, await readConfig());
+    records = records.filter(r => sameRepo(r.repo, fromRepo));
+    if (records.length === 0) {
+      log.err(M.nothingFromRepo(fromRepo));
+      process.exit(1);
+      return;
+    }
+  }
 
   // No --target means "wherever it is installed".
   const concreteTargets = expandTargets(targets);
@@ -39,6 +55,8 @@ export async function uninstallCommand(args) {
 
   if (real.length === 0) {
     log.info(M.uninstallSummary(0, phantoms.length, 0));
+    // Asked to remove something from a repo, and none of it is from there.
+    if (fromRepo) process.exit(1);
     return;
   }
 

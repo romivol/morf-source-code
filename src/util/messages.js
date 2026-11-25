@@ -33,6 +33,7 @@ export const notInstalledForUpdate = (name) =>
 
 // ── uninstall (per item) ─────────────────────────────────────────────────────
 export const removed      = (type, name, target) => t`Removed ${type} '${name}' (${target})`;
+export const nothingFromRepo = (repo) => t`Nothing morf manages here was installed from ${repo}. Nothing was removed.`;
 export const notInstalled = (name)               => t`${name} is not installed (skipping).`;
 
 export const aboutToRemoveHeader = (n) => t`About to remove ${n} item(s):`;

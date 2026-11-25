@@ -146,7 +146,7 @@ morf install   [<repo>] [--skill|--agent|--rule|--prompt|--hook|--mcp <name>...]
                [--target <tool>...|all] [--ref <branch>] [--force] [--dry-run]
 morf update    [--skill|--agent|--rule|--prompt|--hook|--mcp <name>...] [--all]
                [--target <tool>...|all] [--ref <branch>] [--force] [--dry-run]
-morf uninstall [--skill|--agent|--rule|--prompt|--hook|--mcp <name>...] [--all]
+morf uninstall [<repo>] [--skill|--agent|--rule|--prompt|--hook|--mcp <name>...] [--all]
                [--target <tool>...|all] [--force | -y] [--dry-run]
 morf list      [--all] [--check-updates] [--target <tool>...|all]
 morf init
@@ -160,6 +160,7 @@ Flags worth knowing:
 
 - `morf install <repo>` with no item flags installs everything in the repo.
 - `--target` accepts several tools separated by spaces, or `all`. Without it, `install` uses your configured default tool; if none is set, every tool it detects (a global tool's config directory under your home, or a project tool's directory in the current project); if none is detected, `opencode`. `update` and `uninstall` act on every tool the item is installed in.
+- `morf uninstall <repo> ...` removes only items that were installed from that repository, under any spelling of its address. With `--all` it means everything from that repository. If nothing here came from it, nothing is removed and the command exits 1.
 - `--force` overwrites an item you edited locally, or one that already exists and was not installed by morf. Without it, morf skips the item and tells you.
 - `--dry-run` prints what would change and writes nothing.
 - `--allow-exec` lets morf install or replace hooks and MCP servers without asking. See below.

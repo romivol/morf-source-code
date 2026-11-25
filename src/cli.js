@@ -40,7 +40,7 @@ Usage:
                           [--target <tool>...|all] [--ref <branch>] [--force] [--dry-run]
   morf update    [${TYPE_FLAG_LIST} <name>...] [--all]
                           [--target <tool>...|all] [--ref <branch>] [--force] [--dry-run]
-  morf uninstall [${TYPE_FLAG_LIST} <name>...] [--all]
+  morf uninstall [<repo>] [${TYPE_FLAG_LIST} <name>...] [--all]
                           [--target <tool>...|all] [--force | -y] [--dry-run]
   morf list      [--all] [--check-updates] [--target <tool>...|all]
   morf config    <subcommand>   (run 'morf config' for details)

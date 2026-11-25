@@ -121,3 +121,21 @@ export function cleanRepoForProject(repo, root, cwd = process.cwd()) {
 export function resolveStoredRepo(stored, root) {
   return stored.startsWith('.') ? resolve(root, stored) : stored;
 }
+
+// True when two repo values name the same repository: the same remote under
+// any spelling (https, ssh, scp-style, host/owner/repo, with or without .git),
+// or the same local directory. `base` is what a relative local path is
+// relative to.
+export function sameRepo(a, b, base = process.cwd()) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const local = r => !HAS_SCHEME.test(r) && !isScpStyle(r) && (/^[./~]/.test(r) || /^[a-zA-Z]:[\\/]/.test(r) || r.startsWith('/') || existsSync(resolve(base, r)));
+  if (local(a) || local(b)) {
+    if (!(local(a) && local(b))) return false;
+    const norm = r => {
+      const p = resolve(base, r).split('\\').join('/').replace(/\/+$/, '');
+      return process.platform === 'win32' ? p.toLowerCase() : p;
+    };
+    return norm(a) === norm(b);
+  }
+  return normalizeRepo(a) === normalizeRepo(b);
+}

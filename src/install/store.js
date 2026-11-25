@@ -255,11 +255,22 @@ export async function currentHash(loc, record = null) {
 // True when what is on disk is exactly what morf would write for `rendered`.
 // Lets morf recognise items that are already in place without an install
 // record — for example tool files a teammate committed to the repository.
-export async function matchesRendered(loc, rendered) {
+//
+// With `ignoreLineEndings`, CRLF and LF count as the same. morf 1.1.2 on
+// Windows installed whatever git's core.autocrlf had put in its checkout, so an
+// item installed then can differ from today's rendering in line endings alone.
+// That is not a change worth rewriting a user's file for.
+export async function matchesRendered(loc, rendered, { ignoreLineEndings = false } = {}) {
   const { kind, mapping } = loc;
   try {
-    if (kind === 'dir') return await hashPath(loc.destPath) === await hashPath(rendered.srcPath);
-    if (kind === 'file') return await hashPath(loc.destPath) === hashText(rendered.text);
+    if (kind === 'dir') {
+      if (!ignoreLineEndings) return await hashPath(loc.destPath) === await hashPath(rendered.srcPath);
+      return await sameTree(loc.destPath, rendered.srcPath);
+    }
+    if (kind === 'file') {
+      if (!ignoreLineEndings) return await hashPath(loc.destPath) === hashText(rendered.text);
+      return lf(await fs.readFile(loc.destPath, 'utf8')) === lf(rendered.text);
+    }
     if (kind === 'json') {
       const { data } = await readJsonFile(mapping.file);
       const container = getAt(data, mapping.path);
@@ -272,6 +283,31 @@ export async function matchesRendered(loc, rendered) {
   } catch {
     return false;
   }
+}
+
+const lf = text => text.replace(/\r\n/g, '\n');
+
+// Same files with the same content, treating CRLF and LF alike.
+async function sameTree(a, b) {
+  const list = async (dir, rel = '') => {
+    const out = [];
+    for (const e of await fs.readdir(join(dir, rel), { withFileTypes: true })) {
+      const p = rel ? `${rel}/${e.name}` : e.name;
+      if (e.isDirectory()) out.push(...await list(dir, p));
+      else out.push(p);
+    }
+    return out.sort();
+  };
+  const [fa, fb] = [await list(a), await list(b)];
+  if (fa.length !== fb.length || fa.some((f, i) => f !== fb[i])) return false;
+  for (const f of fa) {
+    const [x, y] = [await fs.readFile(join(a, f)), await fs.readFile(join(b, f))];
+    if (x.equals(y)) continue;
+    // Only text can differ by line endings; a file with a NUL byte is binary.
+    if (x.includes(0) || y.includes(0)) return false;
+    if (lf(x.toString('utf8')) !== lf(y.toString('utf8'))) return false;
+  }
+  return true;
 }
 
 // ── write ─────────────────────────────────────────────────────────────────────

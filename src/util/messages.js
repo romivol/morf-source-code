@@ -97,6 +97,9 @@ export const err = {
   noRepo:                `No repo given and no defaultRepo configured. ` +
                          `Provide a repo or set one with 'morf config repo <url>'.`,
   allWithNamed:          `--all cannot be combined with --skill/--agent/--rule/--prompt/--hook/--mcp.`,
+  checkoutFailed: (path, why, r) => path
+    ? t`git could not check out "${path}" from ${r} on this system (${why}). Nothing from that repository was installed.`
+    : t`git could not check out ${r} on this system (${why}). Nothing from that repository was installed.`,
   commitUnavailable: (c, r) => t`Commit ${c} could not be fetched from ${r}. Nothing from that source was installed.`,
 };
 

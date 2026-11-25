@@ -223,12 +223,11 @@ test('project mode: a .gitattributes filter and line-ending rule in the reposito
   a.assertContained('project');
 });
 
-// FINDING, reported and not yet fixed: outside a project morf makes an ordinary
-// checkout, so a repository's .gitattributes can select any filter the user
-// has configured in git (git-lfs being the usual one), and git runs it. In a
-// project the checkout is raw and the test above passes. Marked `todo` so the
-// suite records the gap without failing; remove the mark when it is fixed.
-test('global mode: a .gitattributes filter in the repository has no effect', { todo: 'global-mode checkouts honour repository attributes' }, async () => {
+// Outside a project morf used to make an ordinary checkout, so a repository's
+// .gitattributes could select any filter the user has configured in git
+// (git-lfs being the usual one) and git ran it. Global mode now makes the same
+// raw checkout as project mode.
+test('global mode: a .gitattributes filter in the repository has no effect', async () => {
   const a = await arena();
   const marker = join(a.base, 'FILTER-RAN').replace(/\\/g, '/');
   const repo = filterRepo();
@@ -283,8 +282,13 @@ test('escape sequences and quoting tricks in hook, MCP and agent content', async
   assert.equal(JSON.parse(readFileSync(join(a.root, '.claude/settings.json'), 'utf8')).hooks.PreToolUse[0].hooks[0].command, evilCmd);
 
   // The generated plugin is valid JavaScript whose only data is the command string.
+  // Loaded from a copy named .mjs: the plugin is an ES module (OpenCode loads
+  // it as one), and Node 18 only treats a .js file as a module when a
+  // package.json says so, which the test project does not have.
   const plugin = join(a.root, '.opencode/plugins/morf-guard.js');
-  const mod = await import(pathToFileURL(plugin).href);
+  const copy = join(tmp('morf-plugin-'), 'plugin.mjs');
+  writeFileSync(copy, readFileSync(plugin, 'utf8'));
+  const mod = await import(pathToFileURL(copy).href);
   assert.deepEqual(Object.keys(mod), ['MorfHook_guard']);
   assert.ok(readFileSync(plugin, 'utf8').includes(JSON.stringify(evilCmd)));
   a.assertContained('project');

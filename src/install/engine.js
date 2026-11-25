@@ -183,6 +183,15 @@ export async function prepare(item, options) {
   if (rendered.unsupported) return { ...base, status: 'unsupported', reason: rendered.unsupported };
   assertNoMarker(loc, rendered.text);
 
+  // Installed, not edited, and what morf would write now is the same content
+  // apart from line endings: nothing to rewrite. Only the record is refreshed.
+  // This is what an install made by an older morf on Windows looks like after
+  // an upgrade (see store.matchesRendered).
+  if (destExists && existing && !isLocallyModified &&
+      await matchesRendered(loc, rendered, { ignoreLineEndings: true })) {
+    return { ...base, status: 'adopt', payload: rendered.value !== undefined ? rendered.value : existing.payload };
+  }
+
   const isUpdate = destExists && (Boolean(existing) || Boolean(owner));
   return { ...base, status: isUpdate ? 'replace' : 'install', rendered, isUpdate, destExists, overwrite: isLocallyModified };
 }

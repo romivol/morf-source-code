@@ -80,19 +80,31 @@ function checked(repo, ref, commit) {
 export async function cloneTemp(repo, ref = null) {
   const url = checked(repo, ref, null);
   const dir = await fs.mkdtemp(join(tmpdir(), 'morf-'));
-  const cloneArgs = ['clone', '--depth', '1'];
+  // Fetch without checking out, switch off every checkout-time rewrite, then
+  // check out. A repository's .gitattributes can otherwise name any filter the
+  // user has configured in git (git-lfs, say) and have git run it.
+  const cloneArgs = ['clone', '-q', '--depth', '1', '--no-checkout'];
   if (ref) cloneArgs.push(`--branch=${ref}`);
   cloneArgs.push('--', url, dir);
+  const env = gitEnv(url);
 
   const spinner = createSpinner(`Cloning ${printable(repo)}...`);
   try {
-    await runGit(cloneArgs, { env: gitEnv(url) });
+    await runGit(cloneArgs, { env });
+  } catch (err) {
+    spinner.stop();
+    await removePath(dir).catch(() => {});
+    throw classifyGitError(err, repo, ref);
+  }
+  try {
+    await setRawCheckout(dir);
+    await git(dir, ['reset', '-q', '--hard', 'HEAD'], env);
     spinner.stop();
     return dir;
   } catch (err) {
     spinner.stop();
     await removePath(dir).catch(() => {});
-    throw classifyGitError(err, repo, ref);
+    throw checkoutError(err, repo);
   }
 }
 
@@ -198,10 +210,15 @@ export async function openClone(repo, { ref = null, commit = null, label = null,
         }
         await setRawCheckout(dir);
         try {
-          // `git checkout` does not honour --end-of-options; `git switch` does.
-          await git(dir, ['switch', '-q', '--detach', '--end-of-options', commit], env);
+          await git(dir, ['rev-parse', '--verify', '--quiet', '--end-of-options', `${commit}^{commit}`], env);
         } catch {
           return await fail(new Error(E.commitUnavailable(commit, label || repo)));
+        }
+        try {
+          // `git checkout` does not honour --end-of-options; `git switch` does.
+          await git(dir, ['switch', '-q', '--detach', '--end-of-options', commit], env);
+        } catch (e) {
+          return await fail(checkoutError(e, label || repo));
         }
       }
 
@@ -220,7 +237,11 @@ export async function openClone(repo, { ref = null, commit = null, label = null,
       return await fail(classifyGitError(e, repo, ref));
     }
     await setRawCheckout(dir);
-    await git(dir, ['reset', '-q', '--hard', 'HEAD'], env);
+    try {
+      await git(dir, ['reset', '-q', '--hard', 'HEAD'], env);
+    } catch (e) {
+      return await fail(checkoutError(e, label || repo));
+    }
     const head = await git(dir, ['rev-parse', 'HEAD'], env);
     let branch = null;
     try {
@@ -232,6 +253,28 @@ export async function openClone(repo, { ref = null, commit = null, label = null,
   } catch (e) {
     return await fail(e);
   }
+}
+
+// git fetched the repository but could not write one of its files here: a
+// name this system does not allow, or a path that is too long. morf does not
+// install part of a repository, so the message names the path and says so.
+function checkoutError(cause, repo) {
+  const stderr = String(cause.stderr || cause.message || '');
+  const patterns = [
+    /unable to create file (.+?): (.+)/,
+    /cannot create directory at '(.+?)': (.+)/,
+    /invalid path '(.+?)'/,
+    /unable to create symlink (.+?) \((.+)\)/,
+    /could not create leading directories of '(.+?)': (.+)/,
+  ];
+  for (const line of stderr.split('\n')) {
+    for (const re of patterns) {
+      const hit = line.match(re);
+      if (hit) return new Error(E.checkoutFailed(hit[1], (hit[2] || 'the name is not allowed on this system').trim(), repo));
+    }
+  }
+  const first = stderr.split('\n').map(l => l.trim()).find(l => /^(error|fatal):/.test(l));
+  return new Error(E.checkoutFailed(null, first || 'git could not check the files out', repo));
 }
 
 function classifyGitError(cause, repo, ref) {

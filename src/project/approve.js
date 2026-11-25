@@ -16,7 +16,7 @@
 
 import readline from 'node:readline';
 import { listTargets } from '../install/targets.js';
-import { log } from '../util/log.js';
+import { log, printable } from '../util/log.js';
 import { project as P } from '../util/messages.js';
 
 // Actions that change something on disk.
@@ -70,22 +70,26 @@ function shortCommit(commit) {
 
 // Print every action, grouped by tool.
 export function printPlan(root, actions, warnings = []) {
-  log.info(`Project: ${root}`);
+  // Everything interpolated below can come from a source repository or from
+  // the project files, so it is escaped before it is shown.
+  log.info(`Project: ${printable(root)}`);
   log.info('');
   const shown = actions.filter(a => a.op !== 'current');
   if (shown.length === 0) {
     log.info(P.nothingToDo);
   } else {
     log.bold(P.planHeader);
-    const nameW = Math.max(...shown.map(a => a.name.length));
+    const nameW = Math.max(...shown.map(a => printable(a.name).length));
     for (const target of listTargets()) {
       const mine = shown.filter(a => a.target === target);
       if (mine.length === 0) continue;
       log.info(`  ${target}`);
       for (const a of mine) {
-        const where = a.repo ? `${a.repo}${a.commit ? ` @ ${shortCommit(a.commit)}` : ''}` : '';
-        const detail = a.reason ? (where && CHANGES.has(a.op) ? `${where}  (${a.reason})` : a.reason) : where;
-        log.info(`    ${a.op.padEnd(12)}${a.type.padEnd(8)}${a.name.padEnd(nameW + 3)}${detail}`.replace(/\s+$/, ''));
+        const repo = a.repo ? printable(a.repo) : '';
+        const reason = a.reason ? printable(a.reason) : '';
+        const where = repo ? `${repo}${a.commit ? ` @ ${printable(shortCommit(a.commit))}` : ''}` : '';
+        const detail = reason ? (where && CHANGES.has(a.op) ? `${where}  (${reason})` : reason) : where;
+        log.info(`    ${a.op.padEnd(12)}${printable(a.type).padEnd(8)}${printable(a.name).padEnd(nameW + 3)}${detail}`.replace(/\s+$/, ''));
       }
     }
     log.info('');
@@ -96,7 +100,7 @@ export function printPlan(root, actions, warnings = []) {
     ].filter(([count]) => count > 0).map(([count, label]) => `${count} ${label}`);
     log.info(parts.join(', ') + '.');
   }
-  for (const w of warnings) log.warn(w);
+  for (const w of warnings) log.warn(printable(w));
 }
 
 function printExec(execActions) {
@@ -109,10 +113,12 @@ function printExec(execActions) {
     cur.targets.push(a.target);
     byItem.set(key, cur);
   }
-  const nameW = Math.max(...[...byItem.values()].map(i => i.name.length));
+  const nameW = Math.max(...[...byItem.values()].map(i => printable(i.name).length));
   for (const i of byItem.values()) {
-    log.info(`  ${i.type.padEnd(6)}${i.name.padEnd(nameW + 3)}${i.targets.join(', ')}`);
-    for (const c of i.commands) log.info(`        ${c}`);
+    log.info(`  ${printable(i.type).padEnd(6)}${printable(i.name).padEnd(nameW + 3)}${printable(i.targets.join(', '))}`);
+    // The command is exactly what would run: shown with every control
+    // character made visible, so it cannot hide part of itself.
+    for (const c of i.commands) log.info(`        ${printable(c)}`);
   }
   log.info('');
 }

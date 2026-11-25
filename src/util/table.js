@@ -4,7 +4,7 @@
 // columns and a dim header row. Widths are measured on *visible* text so ANSI
 // color escapes never throw off alignment.
 
-import { log } from './log.js';
+import { log, printable } from './log.js';
 
 // eslint-disable-next-line no-control-regex
 const ANSI =/\x1b\[[0-9;]*m/g;
@@ -41,8 +41,8 @@ export function centerV(str, width) {
 // `tag` is a colored status symbol (e.g. log.TAG.ok()); `note` is an optional
 // short dimmed fragment printed on the same row after the status.
 export function createTargetTable(targets, names, { indent = '  ', gap = 2 } = {}) {
-  const targetW = Math.max('TARGET'.length, ...targets.map(t => String(t).length)) + gap;
-  const nameW   = Math.max('NAME'.length, ...names.map(n => String(n).length)) + gap;
+  const targetW = Math.max('TARGET'.length, ...targets.map(t => printable(t).length)) + gap;
+  const nameW   = Math.max('NAME'.length, ...names.map(n => printable(n).length)) + gap;
   let headerPrinted = false;
 
   function header() {
@@ -53,8 +53,10 @@ export function createTargetTable(targets, names, { indent = '  ', gap = 2 } = {
 
   function row(target, name, tag, note) {
     header();
-    let line = indent + padEndV(target, targetW) + padEndV(name, nameW) + tag;
-    if (note) line += '   ' + log.meta(note);
+    // target, name and note may carry text from a repository or a git error;
+    // `tag` is morf's own coloured status symbol.
+    let line = indent + padEndV(printable(target), targetW) + padEndV(printable(name), nameW) + tag;
+    if (note) line += '   ' + log.meta(printable(note));
     console.log(line);
   }
 

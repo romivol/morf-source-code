@@ -34,3 +34,6 @@ jobs:
       # Includes test/util/portable-hash.test.js: all three systems must compute the
       # same lockfile hash as the constant stored in the repository.
       - run: npm test
+      # Guard: every test file must report as many tests through the runner as
+      # it defines. Catches tests that vanish from the report without failing.
+      - run: npm run test:count

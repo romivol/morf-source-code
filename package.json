@@ -19,6 +19,7 @@
   "scripts": {
     "start": "node bin/cli.js",
     "test": "node --test",
+    "test:count": "node scripts/check-test-count.js",
     "lint": "eslint ."
   },
   "keywords": [

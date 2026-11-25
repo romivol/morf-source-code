@@ -63,6 +63,13 @@ Tests use Node's built-in runner — no framework to install:
 npm test
 ```
 
+`npm run test:count` runs every test file twice, once through the runner and
+once directly, and fails if the two report a different number of tests. CI runs
+it after the suite. It exists because a test that captures `process.stdout` can
+swallow the runner's own result frames, which makes tests disappear from the
+report without failing; use the `run` helper in `test/helpers.js` to capture
+output, never your own replacement of `process.stdout.write`.
+
 Prefer unit tests over the pure modules (`convert`, `sanitize`, `source`,
 `messages`), which are deterministic and side-effect free. When adding a
 feature, add a matching `test/<folder>/<unit>.test.js`.

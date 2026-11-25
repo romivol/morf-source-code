@@ -338,10 +338,44 @@ test('an oversized file in a skill', async () => {
   const big = Buffer.alloc(12 * 1024 * 1024, 'a');
   const repo = makeRepo({ 'skills/big/SKILL.md': SKILL, 'skills/big/blob.bin': big, 'agents/good.md': AGENT });
 
+  // morf has no size limit. An item over 5 MB gets a warning with its size:
+  // in the plan, before the question, in project mode...
+  const io = fakeIo({ tty: true, answers: ['n'] });
+  const declined = await run(() => m.projectInstallCommand({
+    repoArg: repo.dir, names: NAMES(), all: true, targets: ['claude'], force: false, ref: null, yes: false, allowExec: false,
+  }, ctx(a.root, io)));
+  assert.equal(declined.code, 1);
+  assert.match(declined.out, /skill 'big' is 12\.0 MB/);
+  assert.doesNotMatch(declined.out, /agent 'good' is/, 'a small item was flagged');
+  assert.equal(io.asked.length, 1);
+  assert.ok(!exists(a.root, '.claude/skills/big'), 'installed after a no');
+
   const p = await projectInstall(a.root, repo, { targets: ['claude'] });
-  a.assertContained('project');
-  // Reported to the maintainer as an open question: morf has no size limit.
-  // What it does today is install the file as it is.
   assert.equal(p.code, 0, p.out);
+  assert.match(p.out, /skill 'big' is 12\.0 MB/);
   assert.equal(statSync(join(a.root, '.claude/skills/big/blob.bin')).size, big.length);
+  // ...and when sync installs it again from the lockfile.
+  await run(() => m.projectUninstallCommand({ names: NAMES(), all: true, targets: [], yes: true }, ctx(a.root)));
+  await projectInstall(a.root, repo, { targets: ['claude'], dryRun: true }).then(r => assert.match(r.out, /is 12\.0 MB/));
+  a.assertContained('project');
+
+  // ...and on the item's own row in global mode.
+  const g = globalInstall(a.cwd, repo);
+  assert.equal(g.status, 0, g.stdout + g.stderr);
+  assert.match(g.stdout, /claude\s+big\s+\[OK\]\s+large: 12\.0 MB/);
+  assert.doesNotMatch(g.stdout, /good\s+\[OK\]\s+large/);
+  a.assertContained('global');
+  await resetGlobal();
+});
+
+test('an item of exactly 5 MB is not flagged; one byte more is', async () => {
+  const { largeSize } = await import('../../src/install/engine.js');
+  const dir = tmp('morf-size-');
+  write(dir, 'at/SKILL.md', Buffer.alloc(5 * 1024 * 1024, 'a'));
+  write(dir, 'over/SKILL.md', Buffer.alloc(5 * 1024 * 1024, 'a'));
+  write(dir, 'over/extra/one-more-byte', 'x');
+  assert.equal(await largeSize({ srcPath: join(dir, 'at') }), null);
+  assert.equal(await largeSize({ srcPath: join(dir, 'over') }), '5.0 MB');
+  assert.equal(await largeSize({ srcPath: join(dir, 'over'), payload: {} }), null);
+  assert.equal(await largeSize({ srcPath: join(dir, 'missing') }), null);
 });

@@ -139,6 +139,8 @@ export const project = {
   driftDeclHeader:       `Drift: project file vs lockfile`,
   driftDiskHeader:       `Drift: lockfile vs what is on disk`,
   noDrift:               `No drift. The project matches the lockfile.`,
+  largeItem: (type, name, size) => t`${type} '${name}' is ${size}. morf has no size limit; check that this is what you expect.`,
+  largeNote: (size) => t`large: ${size}`,
   doubleRule: (name, tools) =>
     t`rule '${name}' is written to AGENTS.md for codex, and ${tools.join(', ')} also read${tools.length === 1 ? 's' : ''} AGENTS.md, ` +
     `so the rule will apply twice there.`,

@@ -7,7 +7,7 @@ import { readConfig } from '../util/config.js';
 import { log, printable } from '../util/log.js';
 import { assertSafeRepo, assertSafeRef } from '../repo/validate.js';
 import { createTargetTable } from '../util/table.js';
-import { installOne, execToApprove } from '../install/engine.js';
+import { installOne, execToApprove, largeSize } from '../install/engine.js';
 import { approveExec, execCommands, defaultIo, isInteractive } from '../project/approve.js';
 import { project as P } from '../util/messages.js';
 import { countResult, printSummary } from './install.js';
@@ -132,7 +132,8 @@ export async function updateCommand(args, io = defaultIo()) {
             countResult(counts, result);
             if (table && tagName) {
               const projectScoped = targetScope(record.target) === 'project';
-              const trailing = note || (projectScoped ? '(project-scoped)' : null);
+              const size = await largeSize(item);
+              const trailing = [note, size ? P.largeNote(size) : null].filter(Boolean).join('; ') || (projectScoped ? '(project-scoped)' : null);
               table.row(record.target, record.name, log.TAG[tagName](), trailing);
             }
           } catch (e) {

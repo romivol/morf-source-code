@@ -52,6 +52,28 @@ async function hashDir(dir, strict = false) {
   return h.digest('hex');
 }
 
+// ── size ──────────────────────────────────────────────────────────────────────
+
+// An item bigger than this is unusual for a skill, agent, rule or prompt. morf
+// has no size limit; it warns, so the user sees it before the item lands.
+export const LARGE_ITEM_BYTES = 5 * 1024 * 1024;
+
+// Total size in bytes of a file, or of every regular file under a directory.
+export async function sizeOf(p) {
+  const st = await fs.lstat(p);
+  if (st.isFile()) return st.size;
+  if (!st.isDirectory()) return 0;
+  let total = 0;
+  for (const entry of await fs.readdir(p, { withFileTypes: true })) {
+    if (entry.isDirectory() || entry.isFile()) total += await sizeOf(join(p, entry.name));
+  }
+  return total;
+}
+
+export function formatSize(bytes) {
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
 // ── portable hashing (project mode / lockfile) ────────────────────────────────
 //
 // hashPath above is what the install record has always used; it depends on the

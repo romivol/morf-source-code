@@ -3,6 +3,7 @@
 
 import { READS_ROOT_AGENTS_MD } from '../install/targets.js';
 import { portableHashPath } from '../util/fs.js';
+import { largeSize } from '../install/engine.js';
 import { hashValue } from '../install/json-file.js';
 import { commit, removeInstalled, safeOrName } from '../install/engine.js';
 import { execCommands } from './approve.js';
@@ -86,6 +87,20 @@ export async function applyPrunes(prunes, manifest) {
     }
   }
   return failed;
+}
+
+// Warnings for items that are unusually large, shown with the plan.
+//   items: [{ item, type, name }]
+export async function largeWarnings(items) {
+  const out = [];
+  const seen = new Set();
+  for (const { item, type, name } of items) {
+    if (!item || seen.has(item)) continue;
+    seen.add(item);
+    const size = await largeSize(item);
+    if (size) out.push(P.largeItem(type, name, size));
+  }
+  return out;
 }
 
 // Rules for Codex land in the root AGENTS.md, which other tools also read.

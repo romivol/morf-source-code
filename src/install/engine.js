@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { promises as fs } from 'node:fs';
 import { TYPES } from '../repo/scan.js';
 import { sanitizeName } from '../util/sanitize.js';
-import { hashPath, removePath } from '../util/fs.js';
+import { hashPath, removePath, sizeOf, formatSize, LARGE_ITEM_BYTES } from '../util/fs.js';
 import { recordsFor, getRecord, setRecord, deleteRecord, getInstalledHash, getSourceHash } from './install-record.js';
 import { normalizeRepo } from '../repo/url.js';
 import { adaptAgentForTarget } from '../convert/agents.js';
@@ -25,6 +25,18 @@ export const CONVERTER_VERSION = 2;
 // Sanitized name for display; falls back to the raw name if it can't be sanitized.
 export function safeOrName(name) {
   try { return sanitizeName(name); } catch { return name === '' ? '(empty name)' : name; }
+}
+
+// The size of an item, as text, when it is larger than LARGE_ITEM_BYTES;
+// otherwise null. Hooks and MCP servers are small JSON values and never count.
+export async function largeSize(item) {
+  if (item.invalid || item.payload !== undefined) return null;
+  try {
+    const bytes = await sizeOf(item.srcPath);
+    return bytes > LARGE_ITEM_BYTES ? formatSize(bytes) : null;
+  } catch {
+    return null;
+  }
 }
 
 // Pick the items a command asked for out of what a repo offers.

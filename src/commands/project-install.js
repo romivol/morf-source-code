@@ -15,7 +15,7 @@ import {
   writeLockfile, findLockSource, findLockItem, lockItems, addToProject,
 } from '../project/project-file-and-lockfile.js';
 import { prepare, selectItems, safeOrName } from '../install/engine.js';
-import { lockHashOf, toAction, applyActions, doubleRuleWarnings } from '../project/plan.js';
+import { lockHashOf, toAction, applyActions, doubleRuleWarnings, largeWarnings } from '../project/plan.js';
 import { approve, printPlan, defaultIo } from '../project/approve.js';
 import { log, printable } from '../util/log.js';
 import { assertSafeRef } from '../repo/validate.js';
@@ -106,7 +106,7 @@ export async function projectInstallCommand(args, ctx) {
       }
     }
 
-    const warnings = [];
+    const warnings = await largeWarnings(selected.map(item => ({ item, type: item.type, name: safeOrName(item.name) })));
     if (cleaned.local) warnings.push(P.localSource(repo));
     warnings.push(...doubleRuleWarnings(lockEntries.map(e => ({ ...e, targets }))));
     printPlan(root, actions, warnings);

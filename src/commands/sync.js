@@ -16,7 +16,7 @@ import {
 import { prepare, safeOrName } from '../install/engine.js';
 import {
   lockHashOf, tripleKey, findItem, toAction,
-  applyActions, applyPrunes, doubleRuleWarnings, closeAll,
+  applyActions, applyPrunes, doubleRuleWarnings, closeAll, largeWarnings,
 } from '../project/plan.js';
 import { approve, printPlan, defaultIo } from '../project/approve.js';
 import { log, printable } from '../util/log.js';
@@ -153,7 +153,11 @@ export async function syncCommand(flags, ctx) {
     // ── --check: report drift, change nothing ───────────────────────────────
     if (check) return reportDrift({ hadLock, newItems, extra, actions });
 
-    printPlan(root, actions, doubleRuleWarnings(desired));
+    const warnings = [
+      ...doubleRuleWarnings(desired),
+      ...await largeWarnings(desired.map(d => ({ item: d.item, type: d.type, name: d.name }))),
+    ];
+    printPlan(root, actions, warnings);
 
     // --dry-run: the plan is all there is. No questions, no changes, exit 0.
     if (flags.dryRun) { log.dim(P.dryRun); return 0; }

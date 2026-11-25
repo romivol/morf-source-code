@@ -4,7 +4,7 @@ import { assertGitAvailable, withTempClone, scanClone } from '../repo/git.js';
 import { expandTargets, targetScope } from '../install/targets.js';
 import { readManifest, writeManifest } from '../install/install-record.js';
 import { readConfig, resolveRepo } from '../util/config.js';
-import { selectItems, safeOrName, installOne, execToApprove } from '../install/engine.js';
+import { selectItems, safeOrName, installOne, execToApprove, largeSize } from '../install/engine.js';
 import { approveExec, execCommands, defaultIo, isInteractive } from '../project/approve.js';
 import { project as P } from '../util/messages.js';
 import { log, printable } from '../util/log.js';
@@ -48,6 +48,13 @@ export async function installCommand(args, io = defaultIo()) {
     // Hooks and MCP servers run commands, so they are never installed
     // silently: list them and get a yes (or --allow-exec) first. Everything
     // else installs as before whatever the answer.
+    // Unusually large items are pointed out on their row.
+    const large = new Map();
+    for (const item of selected) {
+      const size = await largeSize(item);
+      if (size) large.set(item, P.largeNote(size));
+    }
+
     let blocked = [];
     if (!dryRun) {
       const pairs = concreteTargets.flatMap(target => selected.map(item => ({ item, target })));
@@ -79,7 +86,7 @@ export async function installCommand(args, io = defaultIo()) {
             await installOne(item, { repo, target: concreteTarget, manifest, force, ref, dryRun, config });
           countResult(counts, result);
           if (table && tagName) {
-            const trailing = note || (projectScoped ? '(project-scoped)' : null);
+            const trailing = [note, large.get(item)].filter(Boolean).join('; ') || (projectScoped ? '(project-scoped)' : null);
             table.row(concreteTarget, rowName, log.TAG[tagName](), trailing);
           }
         } catch (e) {

@@ -58,9 +58,17 @@ All tests in this repository check that morf *writes* the right bytes. None of t
 | What | Doubt |
 |---|---|
 | Fetch by commit | Tested against local repositories and against GitHub (`test/repo/network.test.js`: direct fetch by SHA, the full-clone fallback, and a refused non-existent commit). Not tested against GitLab, Bitbucket or a self-hosted server, or against a private repository. |
-| Portable hashes | Proven equal for the same commit under `core.autocrlf` true and false on Windows. `test/util/portable-hash.test.js` compares against a stored constant and is set up to run on Linux, macOS and Windows in CI, **but that workflow has not run yet**: the constant was computed on Windows only. |
-| CI workflow | `.github/workflows/ci.yml` (3 systems x Node 18 and LTS) was written but never executed. The suite has only ever run on Windows with Node 24. |
+| Portable hashes | Verified in CI: `test/util/portable-hash.test.js` reproduces the stored constant on ubuntu-latest, macos-latest and windows-latest, on Node 18 and the current LTS. Not checked on other systems or filesystems (for example a case-insensitive or Unicode-normalising volume with non-ASCII file names). |
+| CI workflow | `.github/workflows/ci.yml` has run green on all six jobs (three systems, Node 18 and the current LTS). The newest Node release is not in the matrix. |
 | Committed tool files on another OS | A project that commits its installed files may check them out with different line endings on Windows (the user's own `core.autocrlf`), in which case morf sees them as edited. |
 | An object that was empty (`{}`) | After morf adds and removes an entry it is left as `{` `}` on two lines; morf cannot know the original spacing. |
 | Interactive prompts | Tested through an injected terminal, not a real TTY. |
 | `morf update` in a project | Moves whole sources: every item from a repo follows that repo's ref. Updating a single item is not possible, because a source has one commit. |
+
+## Open issues
+
+Known behaviour that is probably not what a user expects. These are not unverified guesses; they are how the code works today.
+
+| What | Detail |
+|---|---|
+| `morf uninstall <repo> ...` ignores the repo | `uninstall` accepts a repo as its first argument, as `install` does, and then does nothing with it: items are matched by type, name and tool only. `morf uninstall github.com/acme/agents --all` therefore removes everything morf manages, not only what came from that repo. Left as it is for now; either reject the argument or filter by it. |

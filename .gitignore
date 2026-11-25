@@ -23,3 +23,19 @@ Thumbs.db
 .agents/
 .github/agents/
 .claude/
+.codex/
+.opencode/
+.kilo/
+
+# Project-mode outputs: files morf writes into a project root when run here
+.mcp.json
+opencode.json
+opencode.jsonc
+kilo.json
+kilo.jsonc
+.github/hooks/
+.github/instructions/
+.github/prompts/
+
+# Backups morf makes before first changing a shared file in global mode
+*.morf-backup

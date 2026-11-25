@@ -1,0 +1,15 @@
+# Text files are stored with LF in the repository and checked out with LF on
+# every system, whatever core.autocrlf says. Without this, a Windows checkout
+# shows whole files as changed when only the line endings differ.
+* text=auto eol=lf
+
+# Binary files: never converted, never diffed as text.
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.zip  binary
+*.tgz  binary
+*.bin  binary

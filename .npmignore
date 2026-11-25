@@ -1,9 +1,0 @@
-# The published package ships only runtime code (see "files" in package.json).
-# This list is a belt-and-suspenders guard for anything not covered by that allow-list.
-test/
-.github/
-eslint.config.js
-.editorconfig
-.eslintcache
-CONTRIBUTING.md
-*.tgz

@@ -2,16 +2,16 @@ import {
   readConfig, setDefaultRepo, unsetDefaultRepo,
   setDefaultTarget, unsetDefaultTarget,
   addAlias, removeAlias, setConvertTools,
-} from '../config.js';
-import { isValidTarget, listTargets, ALL_TARGET } from '../targets.js';
-import { log } from '../log.js';
+} from '../util/config.js';
+import { isValidTarget, listTargets, ALL_TARGET } from '../install/targets.js';
+import { log, printable } from '../util/log.js';
 
 const USAGE = `Usage:
   morf config default <tool>       Set the default install target (${listTargets().join(', ')})
   morf config repo <url>           Set the default repo
   morf config alias <@name> <url>  Create a repo shorthand, e.g. @core
   morf config unalias <@name>      Remove an alias
-  morf config convert on|off       Toggle automatic agent format conversion
+  morf config convert on|off       Toggle agent frontmatter conversion (other primitives always convert)
   morf config unset default|repo   Clear the default target / repo
   morf config list                 Show all saved config`;
 
@@ -24,7 +24,7 @@ export async function configCommand(subArgs) {
       const tool = subArgs[1];
       if (!tool) { log.err('Usage: morf config default <tool>'); process.exit(1); }
       if (!isValidTarget(tool) || tool === ALL_TARGET) {
-        log.err(`Unknown tool "${tool}". Valid tools: ${listTargets().join(', ')}.`);
+        log.err(`Unknown tool "${printable(tool)}". Valid tools: ${listTargets().join(', ')}.`);
         process.exit(1);
       }
       await setDefaultTarget(tool);
@@ -38,12 +38,12 @@ export async function configCommand(subArgs) {
       const repo = subArgs[1];
       if (!repo) { log.err('Usage: morf config repo <url>'); process.exit(1); }
       await setDefaultRepo(repo);
-      log.ok(`Default repo set to ${repo}`);
+      log.ok(`Default repo set to ${printable(repo)}`);
       break;
     }
     case 'get-default': {  // legacy alias
       const cfg = await readConfig();
-      log.info(cfg.defaultRepo || '(none)');
+      log.info(printable(cfg.defaultRepo || '(none)'));
       break;
     }
 
@@ -58,7 +58,7 @@ export async function configCommand(subArgs) {
         process.exit(1);
       }
       await addAlias(name, repo);
-      log.ok(`Alias ${name} -> ${repo}`);
+      log.ok(`Alias ${printable(name)} -> ${printable(repo)}`);
       break;
     }
     case 'unalias':
@@ -66,8 +66,8 @@ export async function configCommand(subArgs) {
       const name = subArgs[1];
       if (!name) { log.err('Usage: morf config unalias <@name>'); process.exit(1); }
       const removed = await removeAlias(name);
-      if (removed) log.ok(`Alias ${name} removed.`);
-      else log.info(`Alias ${name} not set (nothing to do).`);
+      if (removed) log.ok(`Alias ${printable(name)} removed.`);
+      else log.info(`Alias ${printable(name)} not set (nothing to do).`);
       break;
     }
 
@@ -89,7 +89,7 @@ export async function configCommand(subArgs) {
         await setConvertTools(val === 'true');
         log.ok(`convert-tools = ${val}`);
       } else {
-        log.err(`Unknown config key: ${key || '(none)'}. See: morf config`);
+        log.err(`Unknown config key: ${printable(key || '(none)')}. See: morf config`);
         process.exit(1);
       }
       break;
@@ -126,10 +126,11 @@ export async function configCommand(subArgs) {
     case 'list': {
       const cfg = await readConfig();
       const aliasKeys = Object.keys(cfg.aliases || {});
-      log.info(`defaultTarget: ${cfg.defaultTarget || '(none — opencode is used)'}`);
-      log.info(`defaultRepo:   ${cfg.defaultRepo || '(none)'}`);
+      // These come from ~/.morf/config.json: escaped like any other value from a file.
+      log.info(`defaultTarget: ${printable(cfg.defaultTarget || '(none — opencode is used)')}`);
+      log.info(`defaultRepo:   ${printable(cfg.defaultRepo || '(none)')}`);
       for (const [k, v] of Object.entries(cfg.aliases || {})) {
-        log.info(`alias ${k}: ${v}`);
+        log.info(`alias ${printable(k)}: ${printable(v)}`);
       }
       log.info(`convert:       ${cfg.convertTools !== false ? 'on' : 'off'}`);
       if (!cfg.defaultTarget && !cfg.defaultRepo && aliasKeys.length === 0) {
@@ -139,7 +140,7 @@ export async function configCommand(subArgs) {
     }
 
     default: {
-      if (sub) log.err(`Unknown config subcommand: ${sub}`);
+      if (sub) log.err(`Unknown config subcommand: ${printable(sub)}`);
       log.info(USAGE);
       if (sub) process.exit(1);
     }

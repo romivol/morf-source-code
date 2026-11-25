@@ -1,53 +1,69 @@
-import { join } from 'node:path';
 import readline from 'node:readline';
-import { resolveDestination, expandTargets } from '../targets.js';
-import { sanitizeName, assertPathInside } from '../sanitize.js';
-import { removePath } from '../fsops.js';
-import { readManifest, writeManifest, getRecord, deleteRecord, allRecords } from '../manifest.js';
-import { log } from '../log.js';
-import { createTargetTable } from '../table.js';
-import * as M from '../messages.js';
+import { expandTargets } from '../install/targets.js';
+import { TYPES } from '../repo/scan.js';
+import { sanitizeName } from '../util/sanitize.js';
+import { readManifest, writeManifest, getRecord, deleteRecord, recordsFor } from '../install/install-record.js';
+import { locate, remove } from '../install/store.js';
+import { removeEmptyCreatedDirs } from '../install/engine.js';
+import { log } from '../util/log.js';
+import { readConfig, resolveRepo } from '../util/config.js';
+import { sameRepo } from '../repo/url.js';
+import { createTargetTable } from '../util/table.js';
+import * as M from '../util/messages.js';
 
 export async function uninstallCommand(args) {
-  const { skills, agents, all, targets, force, dryRun } = args;
+  const { repoArg, names, all, targets, force, dryRun } = args;
 
   const manifest = await readManifest();
+  let records = recordsFor(manifest, '');   // global installs only
 
-  // Build the list of requested removals.
+  // A repo argument narrows everything that follows to items installed from
+  // that repository. With --all it means "everything from that repo", never
+  // "everything morf manages".
+  let fromRepo = null;
+  if (repoArg) {
+    fromRepo = resolveRepo(repoArg, await readConfig());
+    records = records.filter(r => sameRepo(r.repo, fromRepo));
+    if (records.length === 0) {
+      log.err(M.nothingFromRepo(fromRepo));
+      process.exit(1);
+      return;
+    }
+  }
+
+  // No --target means "wherever it is installed".
   const concreteTargets = expandTargets(targets);
-  const requested = all
-    ? allRecords(manifest)
-        .filter(r => concreteTargets.length === 0 || concreteTargets.includes(r.target))
-        .map(r => ({ type: r.type, name: r.name, target: r.target }))
-    : [
-        ...skills.flatMap(name => {
-          try { return concreteTargets.map(t => ({ type: 'skill', name: sanitizeName(name), target: t })); }
-          catch { log.err(`Invalid name: '${name}'`); return []; }
-        }),
-        ...agents.flatMap(name => {
-          try { return concreteTargets.map(t => ({ type: 'agent', name: sanitizeName(name), target: t })); }
-          catch { log.err(`Invalid name: '${name}'`); return []; }
-        }),
-      ];
+  const targetFilter = r => concreteTargets.length === 0 || concreteTargets.includes(r.target);
 
-  // Split into actually-present-in-manifest vs not-installed.
+  // Split the request into records that exist and names that are not installed.
   const real = [];
   const phantoms = [];
-  for (const req of requested) {
-    if (getRecord(manifest, req.type, req.name, req.target)) real.push(req);
-    else phantoms.push(req);
+  if (all) {
+    real.push(...records.filter(targetFilter).map(r => ({ type: r.type, name: r.name, target: r.target })));
+  } else {
+    for (const type of TYPES) {
+      for (const raw of names[type] || []) {
+        let name;
+        try { name = sanitizeName(raw); } catch { log.err(`Invalid name: '${raw}'`); continue; }
+        const matches = records.filter(r => r.type === type && r.name === name && targetFilter(r));
+        if (matches.length === 0) phantoms.push({ type, name });
+        else real.push(...matches.map(r => ({ type, name, target: r.target })));
+      }
+    }
   }
 
   for (const p of phantoms) log.info(M.notInstalled(p.name));
 
   if (real.length === 0) {
     log.info(M.uninstallSummary(0, phantoms.length, 0));
+    // Asked to remove something from a repo, and none of it is from there.
+    if (fromRepo) process.exit(1);
     return;
   }
 
   if (dryRun) {
     for (const req of real) {
-      log.info(M.dry.wouldRemove(req.type, req.name, destPathFor(req)));
+      log.info(M.dry.wouldRemove(req.type, req.name, displayFor(req)));
     }
     log.dim(M.dry.previewDone);
     return;
@@ -76,12 +92,13 @@ export async function uninstallCommand(args) {
 
   for (const req of real) {
     try {
-      const destPath = destPathFor(req);
-      assertPathInside(resolveDestination(req.target, req.type).base, destPath);
+      const record = getRecord(manifest, req.type, req.name, req.target);
+      const loc = locate(req.target, req.type, req.name);
       try {
-        await removePath(destPath);
+        await remove(loc, record);
+        await removeEmptyCreatedDirs(manifest, loc);
       } catch (e) {
-        if (e.code === 'EACCES' || e.code === 'EPERM') throw new Error(M.err.permission(destPath));
+        if (e.code === 'EACCES' || e.code === 'EPERM') throw new Error(M.err.permission(loc.destPath));
         throw e;
       }
       deleteRecord(manifest, req.type, req.name, req.target);
@@ -99,9 +116,9 @@ export async function uninstallCommand(args) {
   if (failures > 0) process.exit(1);
 }
 
-function destPathFor(req) {
-  const { kind, base, ext } = resolveDestination(req.target, req.type);
-  return kind === 'dir' ? join(base, req.name) : join(base, req.name + ext);
+function displayFor(req) {
+  try { return locate(req.target, req.type, req.name).display; }
+  catch { return `${req.target}:${req.name}`; }
 }
 
 function prompt(question) {

@@ -1,15 +1,15 @@
-import { join } from 'node:path';
 import { promises as fs } from 'node:fs';
-import { readManifest, allRecords, getInstalledHash, getSourceHash } from '../manifest.js';
-import { resolveDestination, listTargets } from '../targets.js';
-import { scanDisk, scanRepo } from '../scan.js';
-import { withTempClone, assertGitAvailable } from '../git.js';
-import { hashPath } from '../fsops.js';
-import { sanitizeName } from '../sanitize.js';
-import { log, tintWithHex, isAscii } from '../log.js';
-import { renderTable } from '../table.js';
-import { parseAgentFrontmatter } from '../convert.js';
-import * as M from '../messages.js';
+import { readManifest, recordsFor, getInstalledHash, getSourceHash } from '../install/install-record.js';
+import { listTargets } from '../install/targets.js';
+
+import { locate, currentHash, sourceHashOf, scanDisk } from '../install/store.js';
+import { withTempClone, assertGitAvailable, scanClone } from '../repo/git.js';
+import { sanitizeName } from '../util/sanitize.js';
+import { log, tintWithHex, isAscii, printable } from '../util/log.js';
+import { assertSafeRepo, assertSafeRef } from '../repo/validate.js';
+import { renderTable } from '../util/table.js';
+import { parseAgentFrontmatter } from '../convert/agents.js';
+import * as M from '../util/messages.js';
 
 export function shortRepo(repoOrKey) {
   if (!repoOrKey) return '';
@@ -53,7 +53,8 @@ export async function listCommand(opts = {}) {
   const targetFilter = Array.isArray(target) && target.length > 0 ? target : null;
 
   const manifest = await readManifest();
-  let records = allRecords(manifest);
+  const scope = opts.project ? { project: opts.project } : null;
+  let records = recordsFor(manifest, opts.project || '');
 
   if (targetFilter) records = records.filter(r => targetFilter.includes(r.target));
 
@@ -68,12 +69,11 @@ export async function listCommand(opts = {}) {
     let destPath = null;
     let meta = null;
     try {
-      const { kind, base, ext } = resolveDestination(r.target, r.type);
-      destPath = kind === 'dir' ? join(base, r.name) : join(base, r.name + ext);
-      await fs.access(destPath);
-      present = true;
-      onDiskHash = await hashPath(destPath);
-      if (r.type === 'agent' && kind === 'file') {
+      const loc = locate(r.target, r.type, r.name, scope);
+      destPath = loc.destPath;
+      onDiskHash = await currentHash(loc, r);
+      present = onDiskHash !== null;
+      if (present && r.type === 'agent' && loc.kind === 'file' && loc.mapping.ext === '.md') {
         try {
           const content = await fs.readFile(destPath, 'utf8');
           meta = parseAgentFrontmatter(content, r.name);
@@ -85,9 +85,19 @@ export async function listCommand(opts = {}) {
 
   const repoHashes = new Map();
   if (checkUpdates && withStatus.length > 0) {
-    await assertGitAvailable();
-    log.info(M.listCheckingHeader);
+    // Validate every repo and ref from the install record before git starts.
     const groups = groupByRepoRef(withStatus);
+    for (const [key, group] of [...groups.entries()]) {
+      try {
+        assertSafeRepo(group.repo, { commandLine: true });
+        if (group.ref) assertSafeRef(group.ref);
+      } catch (e) {
+        log.warn(`Could not check for updates: ${e.message}`);
+        groups.delete(key);
+      }
+    }
+    if (groups.size > 0) await assertGitAvailable();
+    log.info(M.listCheckingHeader);
     const groupList = [...groups.entries()];
     let checked = 0;
     for (const [groupKey, group] of groupList) {
@@ -100,15 +110,15 @@ export async function listCommand(opts = {}) {
       const itemHashes = new Map();
       try {
         await withTempClone(group.repo, group.ref, async (cloneDir) => {
-          const available = await scanRepo(cloneDir);
+          const available = await scanClone(cloneDir);
           for (const item of available) {
             try {
-              itemHashes.set(`${item.type}:${sanitizeName(item.name)}`, await hashPath(item.srcPath));
+              itemHashes.set(`${item.type}:${sanitizeName(item.name)}`, await sourceHashOf(item));
             } catch { /* skip */ }
           }
         });
       } catch (e) {
-        log.warn(`Could not check ${group.repo}: ${e.message}`);
+        log.warn(`Could not check ${printable(group.repo)}: ${printable(e.message)}`);
       }
       repoHashes.set(groupKey, itemHashes);
     }
@@ -118,13 +128,13 @@ export async function listCommand(opts = {}) {
   }
 
   // With --all-on-disk, also discover items present on disk but not tracked in
-  // the manifest — they fold into the same pivot table as unmanaged rows.
+  // the install record — they fold into the same pivot table as unmanaged rows.
   const unmanaged = [];
   if (allOnDisk) {
     const managedKeys = new Set(records.map(r => `${r.type}:${r.name}:${r.target}`));
     const targetsToScan = targetFilter || listTargets();
     for (const t of targetsToScan) {
-      for (const item of await scanDisk(t)) {
+      for (const item of await scanDisk(t, scope)) {
         if (!managedKeys.has(`${item.type}:${item.name}:${item.target}`)) unmanaged.push(item);
       }
     }
@@ -226,16 +236,17 @@ function renderPivot(managed, unmanaged, checkUpdates, repoHashes) {
   ];
 
   const rows = rowGroups.map(g => {
-    let nameCell = g.color ? tintWithHex(g.name, g.color) : g.name;
+    const shownName = printable(g.name);
+    let nameCell = g.color ? tintWithHex(shownName, g.color) : shownName;
     if (nameCounts.get(`${g.type}\x00${g.name}`) > 1 && g.source) {
-      nameCell = `${nameCell} (${g.source})`;
+      nameCell = `${nameCell} (${printable(g.source)})`;
     }
     return [
       nameCell,
       g.type,
       ...tools.map(t => g.cells.get(t) || emptyCell),
-      g.source || '',
-      g.updated || '',
+      printable(g.source || ''),
+      printable(g.updated || ''),
     ];
   });
 

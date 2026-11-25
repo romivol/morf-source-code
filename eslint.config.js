@@ -14,6 +14,7 @@ export default [
         setInterval: 'readonly',
         clearInterval: 'readonly',
         Buffer: 'readonly',
+        URL: 'readonly',
       },
     },
     rules: {

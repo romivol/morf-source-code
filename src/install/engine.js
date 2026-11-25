@@ -20,7 +20,7 @@ import * as M from '../util/messages.js';
 
 // Bumped whenever a converter's output changes, so items installed by an older
 // morf are re-rendered on the next install/update even if the source is unchanged.
-export const CONVERTER_VERSION = 2;
+export const CONVERTER_VERSION = 3;
 
 // Sanitized name for display; falls back to the raw name if it can't be sanitized.
 export function safeOrName(name) {
@@ -93,7 +93,7 @@ export async function render(item, loc, config = null) {
   if (item.type === 'hook') return convertHook(item.payload, target, { name });
   // An MCP entry in a file several tools read (.mcp.json) is written once, in
   // the shape all of them accept.
-  if (item.type === 'mcp') return convertMcp(item.payload, loc.shared ? 'copilot' : target, { name });
+  if (item.type === 'mcp') return convertMcp(item.payload, loc.shared ? 'shared' : target, { name });
 
   const sourceText = await fs.readFile(item.srcPath, 'utf8');
 

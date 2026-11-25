@@ -20,6 +20,7 @@ after(cleanup);
 const { CLI } = projectKit(m);
 const { hashPath } = await import('../../src/util/fs.js');
 const { normalizeRepo } = await import('../../src/repo/url.js');
+const { CONVERTER_VERSION } = await import('../../src/install/engine.js');
 
 const SOURCE = {
   'skills/pdf-skill/SKILL.md': '---\nname: pdf-skill\ndescription: Work with PDFs\n---\nUse pdftotext.\n',
@@ -88,7 +89,7 @@ for (const crlf of [true, false]) {
     for (const r of Object.values(rec.items)) {
       assert.equal(r.project, '');
       // (A skill is copied, not converted, so its record carries no converter version.)
-      if (r.type !== 'skill') assert.equal(r.conv, 2);
+      if (r.type !== 'skill') assert.equal(r.conv, CONVERTER_VERSION);
     }
 
     // install over the top behaves the same way.

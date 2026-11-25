@@ -55,6 +55,7 @@
 
 ### Fixed
 
+- **A remote MCP server installed in a project is now seen by Claude Code.** The entry in the shared `.mcp.json` carried `"tools": ["*"]`, and Claude Code silently ignores a remote (`http` or `sse`) entry with that key. morf now writes `tools` on local entries only; Copilot defaults to all tools without it. Existing entries are rewritten on the next `morf sync` or `morf install`.
 - **`morf uninstall <repo>` ignored the repository.** The argument was accepted and dropped, so `morf uninstall <repo> --all` removed everything morf manages. It now removes only what was installed from that repository, in global and project mode, and exits 1 without removing anything when nothing came from it.
 
 - A checkout that fails because the system cannot create one of the repository's paths (a name that is not allowed, or too long) now names the path and says that nothing from that repository was installed.

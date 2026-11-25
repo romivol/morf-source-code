@@ -29,6 +29,18 @@ test('convertMcp(claude/copilot) keep ${VAR}', () => {
   assert.deepEqual(convertMcp(remote, 'copilot').value, { ...remote, tools: ['*'] });
 });
 
+test('convertMcp(shared): the project .mcp.json entry Claude Code and Copilot both read', () => {
+  // Local: both tools accept the stdio shape with "tools".
+  assert.deepEqual(convertMcp(stdio, 'shared').value, { type: 'stdio', ...stdio, tools: ['*'] });
+  // Remote: no "tools" key. Claude Code silently drops a remote entry that has one.
+  assert.deepEqual(convertMcp(remote, 'shared').value, remote);
+  assert.ok(!('tools' in convertMcp({ type: 'sse', url: 'https://x/sse' }, 'shared').value));
+  // Outside the shared file each tool keeps its own shape.
+  assert.ok(!('tools' in convertMcp(remote, 'claude').value));
+  assert.ok(!('tools' in convertMcp(stdio, 'claude').value));
+  assert.deepEqual(convertMcp(stdio, 'copilot').value.tools, ['*']);
+});
+
 test('convertMcp(codex) renders a TOML table', () => {
   const s = convertMcp(stdio, 'codex', { name: 'ctx' }).text;
   assert.match(s, /^\[mcp_servers\.ctx\]\ncommand = "npx"\nargs = \["-y", "pkg"\]\nenv_vars = \["API_KEY"\]\n\n\[mcp_servers\.ctx\.env\]\nMODE = "fast"\n$/);

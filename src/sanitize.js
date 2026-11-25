@@ -8,7 +8,7 @@ export function sanitizeName(name) {
   // Replace anything not in safe set with a dash.
   s = s.replace(/[^a-z0-9._-]/g, '-');
   // Strip leading/trailing dots and dashes (blocks hidden files and "..").
-  s = s.replace(/^[.\-]+|[.\-]+$/g, '');
+  s = s.replace(/^[.-]+|[.-]+$/g, '');
   s = s.slice(0, 255);
   if (!s) throw new Error(`Name "${name}" is invalid after sanitization.`);
   return s;

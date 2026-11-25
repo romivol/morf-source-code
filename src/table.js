@@ -6,7 +6,8 @@
 
 import { log } from './log.js';
 
-const ANSI = /\x1b\[[0-9;]*m/g;
+// eslint-disable-next-line no-control-regex
+const ANSI =/\x1b\[[0-9;]*m/g;
 
 export function visibleWidth(str) {
   return String(str).replace(ANSI, '').length;

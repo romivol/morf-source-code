@@ -1,10 +1,9 @@
-import { join } from 'node:path';
 import { promises as fs } from 'node:fs';
-import { readManifest, allRecords, getInstalledHash, getSourceHash } from '../manifest.js';
-import { resolveDestination, listTargets } from '../targets.js';
-import { scanDisk, scanRepo } from '../scan.js';
+import { readManifest, recordsFor, getInstalledHash, getSourceHash } from '../manifest.js';
+import { listTargets } from '../targets.js';
+import { scanRepo } from '../scan.js';
+import { locate, currentHash, sourceHashOf, scanDisk } from '../store.js';
 import { withTempClone, assertGitAvailable } from '../git.js';
-import { hashPath } from '../fsops.js';
 import { sanitizeName } from '../sanitize.js';
 import { log, tintWithHex, isAscii } from '../log.js';
 import { renderTable } from '../table.js';
@@ -53,7 +52,8 @@ export async function listCommand(opts = {}) {
   const targetFilter = Array.isArray(target) && target.length > 0 ? target : null;
 
   const manifest = await readManifest();
-  let records = allRecords(manifest);
+  const scope = opts.project ? { project: opts.project } : null;
+  let records = recordsFor(manifest, opts.project || '');
 
   if (targetFilter) records = records.filter(r => targetFilter.includes(r.target));
 
@@ -68,12 +68,11 @@ export async function listCommand(opts = {}) {
     let destPath = null;
     let meta = null;
     try {
-      const { kind, base, ext } = resolveDestination(r.target, r.type);
-      destPath = kind === 'dir' ? join(base, r.name) : join(base, r.name + ext);
-      await fs.access(destPath);
-      present = true;
-      onDiskHash = await hashPath(destPath);
-      if (r.type === 'agent' && kind === 'file') {
+      const loc = locate(r.target, r.type, r.name, scope);
+      destPath = loc.destPath;
+      onDiskHash = await currentHash(loc, r);
+      present = onDiskHash !== null;
+      if (present && r.type === 'agent' && loc.kind === 'file' && loc.mapping.ext === '.md') {
         try {
           const content = await fs.readFile(destPath, 'utf8');
           meta = parseAgentFrontmatter(content, r.name);
@@ -103,7 +102,7 @@ export async function listCommand(opts = {}) {
           const available = await scanRepo(cloneDir);
           for (const item of available) {
             try {
-              itemHashes.set(`${item.type}:${sanitizeName(item.name)}`, await hashPath(item.srcPath));
+              itemHashes.set(`${item.type}:${sanitizeName(item.name)}`, await sourceHashOf(item));
             } catch { /* skip */ }
           }
         });
@@ -118,13 +117,13 @@ export async function listCommand(opts = {}) {
   }
 
   // With --all-on-disk, also discover items present on disk but not tracked in
-  // the manifest — they fold into the same pivot table as unmanaged rows.
+  // the install record — they fold into the same pivot table as unmanaged rows.
   const unmanaged = [];
   if (allOnDisk) {
     const managedKeys = new Set(records.map(r => `${r.type}:${r.name}:${r.target}`));
     const targetsToScan = targetFilter || listTargets();
     for (const t of targetsToScan) {
-      for (const item of await scanDisk(t)) {
+      for (const item of await scanDisk(t, scope)) {
         if (!managedKeys.has(`${item.type}:${item.name}:${item.target}`)) unmanaged.push(item);
       }
     }

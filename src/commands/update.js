@@ -1,23 +1,22 @@
 import { assertGitAvailable, withTempClone } from '../git.js';
-import { scanRepo } from '../scan.js';
+import { scanRepo, TYPES } from '../scan.js';
 import { sanitizeName } from '../sanitize.js';
-import { expandTargets } from '../targets.js';
-import { readManifest, writeManifest, allRecords } from '../manifest.js';
+import { expandTargets, targetScope } from '../targets.js';
+import { readManifest, writeManifest, recordsFor } from '../manifest.js';
 import { readConfig } from '../config.js';
 import { log } from '../log.js';
 import { createTargetTable } from '../table.js';
-import { targetScope } from '../targets.js';
 import { installOne, countResult, printSummary } from './install.js';
 import * as M from '../messages.js';
 
 export async function updateCommand(args) {
-  const { skills, agents, all, targets, force, ref: refOverride, dryRun } = args;
+  const { names, all, targets, force, ref: refOverride, dryRun } = args;
 
   await assertGitAvailable();
   const config = await readConfig();
 
   const manifest = await readManifest();
-  const records = allRecords(manifest);
+  const records = recordsFor(manifest, '');   // global installs only; projects have their own commands
 
   const counts = { installed: 0, updated: 0, upToDate: 0, skipped: 0, failed: 0 };
 
@@ -30,10 +29,8 @@ export async function updateCommand(args) {
   if (all) {
     toUpdate = records.filter(targetFilter);
   } else {
-    const wanted = [
-      ...skills.map(n => ({ type: 'skill', orig: n, name: safeOrNull(n) })),
-      ...agents.map(n => ({ type: 'agent', orig: n, name: safeOrNull(n) })),
-    ];
+    const wanted = TYPES.flatMap(type =>
+      (names[type] || []).map(n => ({ type, orig: n, name: safeOrNull(n) })));
     for (const w of wanted) {
       if (!w.name) { unknown.push(w); continue; }
       const matches = records.filter(r => r.type === w.type && r.name === w.name && targetFilter(r));
@@ -74,7 +71,7 @@ export async function updateCommand(args) {
         const available = await scanRepo(cloneDir);
         for (const record of group.records) {
           const item = available.find(i =>
-            i.type === record.type && sanitizeName(i.name) === record.name
+            i.type === record.type && safeOrNull(i.name) === record.name
           );
           if (!item) {
             if (table) table.row(record.target, record.name, log.TAG.fail(), `not found in ${group.repo}`);
@@ -107,7 +104,7 @@ export async function updateCommand(args) {
       });
     } catch (e) {
       log.err(e.message);
-      for (const _ of group.records) counts.failed++;
+      counts.failed += group.records.length;
     }
   }
 

@@ -8,6 +8,7 @@ import {
   targetScope,
   isValidTarget,
   resolveDestination,
+  detectTargets,
 } from '../src/targets.js';
 
 test('listTargets includes codex and totals 7', () => {
@@ -32,9 +33,30 @@ test('codex skill destination is ~/.codex/skills', () => {
   );
 });
 
-test('codex does not support agents', () => {
-  assert.throws(
-    () => resolveDestination('codex', 'agent'),
-    /does not support agents/
-  );
+test('codex agents are TOML files under ~/.codex/agents', () => {
+  const m = resolveDestination('codex', 'agent');
+  assert.equal(m.base, join(homedir(), '.codex', 'agents'));
+  assert.equal(m.ext, '.toml');
+});
+
+test('every target has a destination for every primitive', () => {
+  for (const target of listTargets()) {
+    for (const type of ['skill', 'agent', 'rule', 'prompt', 'hook', 'mcp']) {
+      assert.ok(resolveDestination(target, type).kind, `${target}/${type}`);
+    }
+  }
+});
+
+test('project-scope destinations follow the given cwd', () => {
+  const cwd = join(homedir(), 'some-project');
+  assert.equal(resolveDestination('cursor', 'rule', cwd).base, join(cwd, '.cursor', 'rules'));
+  assert.equal(resolveDestination('cursor', 'agent', cwd).base, join(cwd, '.cursor', 'agents'));
+  assert.equal(resolveDestination('copilot', 'mcp', cwd).file, join(cwd, '.mcp.json'));
+  assert.equal(resolveDestination('windsurf', 'hook', cwd).file, join(cwd, '.devin', 'hooks.v1.json'));
+});
+
+test('detectTargets only reports project tools with a marker in the project', () => {
+  const empty = join(homedir(), 'morf-no-such-project-dir');
+  const detected = detectTargets(empty);
+  for (const t of ['cursor', 'copilot', 'windsurf']) assert.ok(!detected.includes(t));
 });

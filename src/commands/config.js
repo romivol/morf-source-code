@@ -11,7 +11,7 @@ const USAGE = `Usage:
   morf config repo <url>           Set the default repo
   morf config alias <@name> <url>  Create a repo shorthand, e.g. @core
   morf config unalias <@name>      Remove an alias
-  morf config convert on|off       Toggle automatic agent format conversion
+  morf config convert on|off       Toggle agent frontmatter conversion (other primitives always convert)
   morf config unset default|repo   Clear the default target / repo
   morf config list                 Show all saved config`;
 

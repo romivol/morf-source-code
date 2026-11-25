@@ -51,7 +51,9 @@ export function isInteractive(io, flags) {
 export function defaultIo() {
   return {
     isTTY: Boolean(process.stdin.isTTY && process.stdout.isTTY),
-    env: process.env,
+    // Only the one variable the gate reads: the io object never carries the
+    // whole environment, which holds the user's secrets.
+    env: { CI: process.env.CI },
     ask(question) {
       return new Promise((resolve) => {
         const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
@@ -121,6 +123,24 @@ function printExec(execActions) {
     for (const c of i.commands) log.info(`        ${printable(c)}`);
   }
   log.info('');
+}
+
+// Global mode has no plan, but hooks and MCP servers still run commands: they
+// are listed and confirmed on their own. Returns true when they may be
+// installed.
+//   Interactive      asks (default No), unless --allow-exec was given.
+//   CI / no terminal never asks; needs --allow-exec.
+export async function approveExec(execActions, flags, io) {
+  if (execActions.length === 0) return true;
+  printExec(execActions);
+  if (flags.allowExec) return true;
+  if (!isInteractive(io, flags)) {
+    log.info(P.execNeedsFlag);
+    return false;
+  }
+  if (yes(await io.ask(P.askExec))) return true;
+  log.info(P.execDeclined);
+  return false;
 }
 
 // Decide whether the plan may be applied.

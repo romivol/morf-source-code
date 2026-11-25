@@ -7,14 +7,17 @@ import { readConfig } from '../util/config.js';
 import { log, printable } from '../util/log.js';
 import { assertSafeRepo, assertSafeRef } from '../repo/validate.js';
 import { createTargetTable } from '../util/table.js';
-import { installOne } from '../install/engine.js';
+import { installOne, execToApprove } from '../install/engine.js';
+import { approveExec, execCommands, defaultIo, isInteractive } from '../project/approve.js';
+import { project as P } from '../util/messages.js';
 import { countResult, printSummary } from './install.js';
 import * as M from '../util/messages.js';
 
-export async function updateCommand(args) {
+export async function updateCommand(args, io = defaultIo()) {
   const { names, all, targets, force, ref: refOverride, dryRun } = args;
 
   if (refOverride) assertSafeRef(refOverride);
+  let execRefused = false;
   const config = await readConfig();
 
   const manifest = await readManifest();
@@ -90,10 +93,26 @@ export async function updateCommand(args) {
     try {
       await withTempClone(group.repo, group.ref, async (cloneDir) => {
         const available = await scanRepo(cloneDir);
+        const find = record => available.find(i => i.type === record.type && safeOrNull(i.name) === record.name);
+
+        // Replacing a hook or MCP server needs the same approval as installing one.
+        let blocked = [];
+        if (!dryRun) {
+          const pairs = group.records.map(r => ({ item: find(r), target: r.target })).filter(p => p.item);
+          const exec = await execToApprove(pairs, { manifest, force, config }, execCommands);
+          if (!(await approveExec(exec, { allowExec: args.allowExec }, io))) {
+            blocked = exec;
+            execRefused = execRefused || !isInteractive(io, {});
+          }
+        }
+
         for (const record of group.records) {
-          const item = available.find(i =>
-            i.type === record.type && safeOrNull(i.name) === record.name
-          );
+          const item = find(record);
+          if (item && blocked.some(b => b.item === item && b.target === record.target)) {
+            if (table) table.row(record.target, record.name, log.TAG.mod(), P.execSkippedNote);
+            counts.skipped++;
+            continue;
+          }
           if (!item) {
             if (table) table.row(record.target, record.name, log.TAG.fail(), `not found in ${group.repo}`);
             else log.err(`Failed to update ${record.type} '${record.name}': not found in ${group.repo}`);
@@ -134,7 +153,7 @@ export async function updateCommand(args) {
   if (dryRun) { log.dim(M.dry.previewDone); return; }
 
   printSummary(counts);
-  if (counts.failed > 0) process.exit(1);
+  if (counts.failed > 0 || execRefused) process.exit(1);
 }
 
 function safeOrNull(name) {

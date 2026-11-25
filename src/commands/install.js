@@ -5,7 +5,9 @@ import { scanRepo } from '../repo/scan.js';
 import { expandTargets, targetScope } from '../install/targets.js';
 import { readManifest, writeManifest } from '../install/install-record.js';
 import { readConfig, resolveRepo } from '../util/config.js';
-import { selectItems, safeOrName, installOne } from '../install/engine.js';
+import { selectItems, safeOrName, installOne, execToApprove } from '../install/engine.js';
+import { approveExec, execCommands, defaultIo, isInteractive } from '../project/approve.js';
+import { project as P } from '../util/messages.js';
 import { log, printable } from '../util/log.js';
 import { assertSafeRef } from '../repo/validate.js';
 import { createTargetTable } from '../util/table.js';
@@ -13,7 +15,7 @@ import * as M from '../util/messages.js';
 
 const NOTE_INDENT = '         '; // 9 spaces
 
-export async function installCommand(args) {
+export async function installCommand(args, io = defaultIo()) {
   const { repoArg, names, all, targets, force, ref, dryRun } = args;
 
   const config = await readConfig();
@@ -25,6 +27,7 @@ export async function installCommand(args) {
 
   const counts = { installed: 0, updated: 0, upToDate: 0, skipped: 0, failed: 0 };
   const concreteTargets = expandTargets(targets);
+  let execRefused = false;
 
   await withTempClone(repo, ref, async (cloneDir) => {
     const available = await scanRepo(cloneDir);
@@ -43,6 +46,19 @@ export async function installCommand(args) {
 
     const manifest = await readManifest();
 
+    // Hooks and MCP servers run commands, so they are never installed
+    // silently: list them and get a yes (or --allow-exec) first. Everything
+    // else installs as before whatever the answer.
+    let blocked = [];
+    if (!dryRun) {
+      const pairs = concreteTargets.flatMap(target => selected.map(item => ({ item, target })));
+      const exec = await execToApprove(pairs, { manifest, force, config }, execCommands);
+      if (!(await approveExec(exec, { allowExec: args.allowExec }, io))) {
+        blocked = exec;
+        execRefused = !isInteractive(io, {});
+      }
+    }
+
     const selectedNames = selected.map(i => safeOrName(i.name));
     const table = (!dryRun && selected.length > 0)
       ? createTargetTable(concreteTargets, selectedNames)
@@ -54,6 +70,11 @@ export async function installCommand(args) {
 
       for (const item of selected) {
         const rowName = safeOrName(item.name);
+        if (blocked.some(b => b.item === item && b.target === concreteTarget)) {
+          if (table) table.row(concreteTarget, rowName, log.TAG.mod(), P.execSkippedNote);
+          counts.skipped++;
+          continue;
+        }
         try {
           const { result, tagName, note } =
             await installOne(item, { repo, target: concreteTarget, manifest, force, ref, dryRun, config });
@@ -81,7 +102,8 @@ export async function installCommand(args) {
   }
 
   printSummary(counts);
-  if (counts.failed > 0) process.exit(1);
+  // A non-interactive run that could not install what it was asked to is a failure.
+  if (counts.failed > 0 || execRefused) process.exit(1);
 }
 
 export function countResult(counts, result) {

@@ -88,8 +88,9 @@ Flags:
   --force / -y      Overwrite local edits (install/update); skip confirm prompt (uninstall)
   --global          Inside a project: act globally and leave the project files alone
   --yes             (project) Apply the plan without asking
-  --allow-exec      (project) Also allow installing hooks and MCP servers; never implied
-                    by --yes. Removing them never needs it
+  --allow-exec      Allow installing or replacing hooks and MCP servers without the
+                    confirmation question (required when there is no terminal).
+                    Never implied by --yes. Removing them never needs it
   --prune           (sync) Remove installed items that are no longer in the lockfile
   --dry-run         Show what would happen without writing anything. In a project it
                     prints the plan and stops: no questions, whatever other flags say

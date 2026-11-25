@@ -24,6 +24,7 @@
   - `GIT_ALLOW_PROTOCOL` restricts git to https, ssh and local files, so helpers such as `ext::` are refused by git itself.
   - No git process starts before validation has passed.
   - `http://` and `git://` repository URLs are no longer accepted.
+- **Hooks and MCP servers are never installed silently, in or out of a project.** Outside a project, `morf install` and `morf update` used to install them like any other item, so a bare `morf install <repo>` could put a command-running hook into your tool config without asking. They are now listed with the command each will run and need a yes (default No); with no terminal or in CI they need `--allow-exec`, and without it they are skipped and the command exits 1. Removal never needs the flag.
 - **Untrusted text is escaped before it is printed.** Repo, ref, item names, hook and MCP commands, and git's own error text are shown with control characters (ESC, CR, backspace, newlines) and bidirectional-override characters made visible, so they cannot hide or rewrite the plan a user is asked to approve.
 - Validation errors no longer repeat credentials found in a repository URL.
 

@@ -152,7 +152,14 @@ export async function run(fn) {
   const lines = [];
   const orig = { log: console.log, warn: console.warn, error: console.error, write: process.stdout.write };
   console.log = console.warn = console.error = (...a) => { lines.push(a.join(' ')); };
-  process.stdout.write = (s) => { lines.push(String(s)); return true; };
+  // Capture only text. The test runner sends its own results to the parent
+  // process as binary frames on this same stream; swallowing those would make
+  // tests vanish from the report.
+  process.stdout.write = (chunk, ...rest) => {
+    if (typeof chunk !== 'string') return orig.write.call(process.stdout, chunk, ...rest);
+    lines.push(chunk);
+    return true;
+  };
   try {
     const code = await fn();
     return { code, out: lines.join('\n') };

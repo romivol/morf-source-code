@@ -267,6 +267,27 @@ export async function removeInstalled(manifest, record) {
   return others.length === 0;
 }
 
+// The hooks and MCP servers among `pairs` ([{ item, target }]) that installing
+// would actually put in place or replace — as actions for the approval gate.
+// Items that are already current, unsupported or blocked by local edits need
+// no approval, because nothing would be written for them.
+export async function execToApprove(pairs, options, execCommands) {
+  const out = [];
+  for (const { item, target } of pairs) {
+    if (item.invalid || (item.type !== 'hook' && item.type !== 'mcp')) continue;
+    let prep;
+    try {
+      prep = await prepare(item, { ...options, target });
+    } catch {
+      continue;          // it will fail, and say why, when it is installed
+    }
+    if (prep.status === 'install' || prep.status === 'replace') {
+      out.push({ item, target, type: item.type, name: prep.safeName, exec: execCommands(item) });
+    }
+  }
+  return out;
+}
+
 // Install or update a single item.
 // Returns { result, tagName, note } where result is one of
 //   'installed' | 'updated' | 'up-to-date' | 'skipped'

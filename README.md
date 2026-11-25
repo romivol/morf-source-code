@@ -162,8 +162,20 @@ Flags worth knowing:
 - `--target` accepts several tools separated by spaces, or `all`. Without it, `install` uses your configured default tool; if none is set, every tool it detects (a global tool's config directory under your home, or a project tool's directory in the current project); if none is detected, `opencode`. `update` and `uninstall` act on every tool the item is installed in.
 - `--force` overwrites an item you edited locally, or one that already exists and was not installed by morf. Without it, morf skips the item and tells you.
 - `--dry-run` prints what would change and writes nothing.
+- `--allow-exec` lets morf install or replace hooks and MCP servers without asking. See below.
 - `--ascii` replaces the unicode status symbols with `[OK]`-style tokens for terminals that cannot render them.
 - `--all` on `list` also shows skills, agents, rules, prompts and MCP servers found in a tool's locations that morf did not install.
+
+### Hooks and MCP servers are never installed silently
+
+A hook or an MCP server is a command that will run on your machine, so morf does not install or replace one without a yes, whether or not you are in a project.
+
+- In a terminal, morf lists each one with the command it will run and asks `Install the hooks and MCP servers listed above?` The default is No. If you decline, they are skipped and everything else you asked for is still installed.
+- With no terminal, or when `CI` is set, morf never asks. It installs them only if you pass `--allow-exec`. Without the flag it prints the list, installs the other items, skips the hooks and MCP servers, and exits 1.
+- This applies to `morf install` and `morf update`, including a bare `morf install <repo>`. `--yes`, `-y` and `--force` do not count as `--allow-exec`.
+- Removing a hook or MCP server runs nothing, so `morf uninstall` never needs the flag.
+
+Skills, agents, rules and prompts are not affected outside a project. Inside a project the stricter rule in [Nothing is installed without approval](#nothing-is-installed-without-approval) applies to every kind of item.
 
 ### Aliases and a default repo
 
